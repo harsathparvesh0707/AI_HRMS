@@ -62,10 +62,12 @@ const ContentContainer = ({ onShowEmployeeList }) => {
     if (onShowEmployeeList) onShowEmployeeList(setShowEmployeeList);
   }, [onShowEmployeeList]);
 
-  // === Second Code: Load dashboard data ===
+  // === Load dashboard data ===
   useEffect(() => {
     const loadDashboardData = async () => {
       const data = await fetchDashboardData();
+      setDashboardData(data);
+      
       const dynamicCards = [
         { id: "attendance", component: <DynamicCard type="attendance" data={data.attendance} />, header: "Attendance Status" },
         { id: "leaveBalance", component: <DynamicCard type="leave_balance" data={data.leave_balance} />, header: "Leave Balance" },
@@ -161,6 +163,30 @@ const ContentContainer = ({ onShowEmployeeList }) => {
     </>
   );
 
+  const getFixedLayout = () => [
+    // Column 1 (75%) - Row 1: Employee Table (full width of column)
+    { i: "employeeTable", x: 0, y: 0, w: 9, h: 5.5 },
+    
+    // Column 1 (75%) - Row 2: Three cards (attendance, leave balance, notifications)
+    { i: "attendance", x: 0, y: 5, w: 3, h: 2 },
+    { i: "leaveBalance", x: 3, y: 5, w: 3, h: 2 },
+    { i: "notifications", x: 6, y: 5, w: 3, h: 2 },
+    
+    // Column 1 (75%) - Row 3: Employee stats (total employees, in project, free pool)
+    { i: "stats-0", x: 0, y: 7, w: 3, h: 2.4 }, // Total Employees
+    { i: "stats-1", x: 3, y: 7, w: 3, h: 2.4 }, // In Project
+    { i: "stats-2", x: 6, y: 7, w: 3, h: 2.4 }, // Free Pool
+    
+    // Column 2 (25%) - Row 1: Upcoming Projects
+    { i: "upcomingProjects", x: 9, y: 0, w: 3, h: 3.4 },
+    
+    // Column 2 (25%) - Row 2: Recent Projects
+    { i: "recentProjects", x: 9, y: 3, w: 3, h: 2.9 },
+    
+    // Column 2 (25%) - Row 3: Latest Candidates
+    { i: "latestCandidates", x: 9, y: 6, w: 3, h: 4.4 },
+  ];
+
   const buildLayout = (ids, startY = 0) =>
     ids.map((id, index) => ({
       i: id,
@@ -170,7 +196,17 @@ const ContentContainer = ({ onShowEmployeeList }) => {
       h: 2,
     }));
 
-  // const breakpointColumnsObj = { default: 3, 1100: 3, 700: 2, 500: 1 };
+  const renderCard = (id) => {
+    const card = allCards.find((c) => c.id === id);
+    if (!card) return null;
+    return (
+      <div key={id}>
+        <Cards header={card.header} actions={getCardActions(id)}>
+          {card.component}
+        </Cards>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-1 p-3">
@@ -183,53 +219,115 @@ const ContentContainer = ({ onShowEmployeeList }) => {
           <>
             {/* === PINNED CARDS === */}
             {pinned.length > 0 && (
-              <GridLayout
-                className="layout bg-blue-50 rounded-lg p-2 min-h-[150px]"
-                layout={buildLayout(pinned, 0)}
-                cols={12}
-                rowHeight={150}
-                width={1360}
-                isResizable
-                isDraggable
-              >
-                {pinned.map((id) => {
-                  const card = allCards.find((c) => c.id === id);
-                  if (!card) return null;
-                  return (
-                    <div key={id}>
-                      <Cards header={card.header} actions={getCardActions(id)}>
-                        {card.component}
-                      </Cards>
-                    </div>
-                  );
-                })}
-              </GridLayout>
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-3 text-blue-600">Pinned Cards</h3>
+                <GridLayout
+                  className="layout bg-blue-50 rounded-lg p-2 min-h-[150px]"
+                  layout={buildLayout(pinned, 0)}
+                  cols={12}
+                  rowHeight={150}
+                  width={1360}
+                  margin={[12, 12]}
+                  isResizable
+                  isDraggable
+                >
+                  {pinned.map(renderCard)}
+                </GridLayout>
+              </div>
             )}
 
             {/* === UNPINNED CARDS === */}
-            {unpinned.length > 0 && (
-              <GridLayout
-                className="layout p-2"
-                layout={buildLayout(unpinned, 0)}
-                cols={12}
-                rowHeight={150}
-                width={1360}
-                isResizable
-                isDraggable
-              >
-                {unpinned.map((id) => {
-                  const card = allCards.find((c) => c.id === id);
-                  if (!card) return null;
-                  return (
-                    <div key={id}>
-                      <Cards header={card.header} actions={getCardActions(id)}>
-                        {card.component}
-                      </Cards>
-                    </div>
-                  );
-                })}
-              </GridLayout>
-            )}
+            <GridLayout
+              className="layout p-2"
+              layout={getFixedLayout().filter(item => unpinned.includes(item.i))}
+              cols={12}
+              rowHeight={80}
+              width={1360}
+              margin={[12, 12]}
+              isResizable
+              isDraggable
+            >
+              {/* Employee Table */}
+              {unpinned.includes("employeeTable") && (
+                <div key="employeeTable">
+                  <Cards header="Employee Table" actions={getCardActions("employeeTable")}>
+                    <TableContent />
+                  </Cards>
+                </div>
+              )}
+              
+              {/* Attendance, Leave Balance, Notifications */}
+              {unpinned.includes("attendance") && (
+                <div key="attendance">
+                  <Cards header="Attendance Status" actions={getCardActions("attendance")}>
+                    <DynamicCard type="attendance" data={dashboardData?.attendance} />
+                  </Cards>
+                </div>
+              )}
+              {unpinned.includes("leaveBalance") && (
+                <div key="leaveBalance">
+                  <Cards header="Leave Balance" actions={getCardActions("leaveBalance")}>
+                    <DynamicCard type="leave_balance" data={dashboardData?.leave_balance} />
+                  </Cards>
+                </div>
+              )}
+              {unpinned.includes("notifications") && (
+                <div key="notifications">
+                  <Cards header="Notifications" actions={getCardActions("notifications")}>
+                    <DynamicCard type="notifications" data={dashboardData?.notifications} />
+                  </Cards>
+                </div>
+              )}
+              
+              {/* Employee Stats */}
+              {employeeStats.map((stat, index) => (
+                unpinned.includes(`stats-${index}`) && (
+                  <div key={`stats-${index}`}>
+                    <Cards header={stat.title} actions={getCardActions(`stats-${index}`)}>
+                      <div className="mt-3 text-3xl font-bold">{stat.count}</div>
+                      <div className="flex items-center gap-1 text-sm mt-2">
+                        <span className={`${stat.trend === "up" ? "text-green-600" : "text-red-600"} font-semibold`}>
+                          {stat.trend === "up" ? `↑ ${stat.change}` : `↓ ${Math.abs(stat.change)}`}
+                        </span>
+                        <span className="text-gray-500">vs last week</span>
+                      </div>
+                      <div className="mt-3 flex items-end gap-4">
+                        {[...Array(6)].map((_, i) => (
+                          <div key={i} className="w-full rounded bg-green-700" style={{ height: `${Math.random() * 20 + 30}px` }} />
+                        ))}
+                      </div>
+                    </Cards>
+                  </div>
+                )
+              ))}
+              
+              {/* Upcoming Projects */}
+              {unpinned.includes("upcomingProjects") && (
+                <div key="upcomingProjects">
+                  <Cards header="Upcoming Projects" actions={getCardActions("upcomingProjects")}>
+                    <Projects />
+                  </Cards>
+                </div>
+              )}
+              
+              {/* Recent Projects */}
+              {unpinned.includes("recentProjects") && (
+                <div key="recentProjects">
+                  <Cards header="Recent Projects" actions={getCardActions("recentProjects")}>
+                    <DynamicCard type="recent_projects" data={dashboardData?.recent_projects} />
+                  </Cards>
+                </div>
+              )}
+              
+              {/* Latest Candidates */}
+              {unpinned.includes("latestCandidates") && (
+                <div key="latestCandidates">
+                  <Cards header="Latest Candidates" actions={getCardActions("latestCandidates")}>
+                    <Candidate />
+                  </Cards>
+                </div>
+              )}
+            </GridLayout>
 
 
 
