@@ -1,0 +1,163 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Updated color palette for professional HR application based on design brief */
+  --background: #ffffff; /* White background */
+  --foreground: #374151; /* Dark gray text */
+  --card: #f0fdf4; /* Light green for cards */
+  --card-foreground: #374151;
+  --popover: #ffffff;
+  --popover-foreground: #374151;
+  --primary: #15803d; /* Green-700 for call-to-action buttons */
+  --primary-foreground: #ffffff; /* Text on primary buttons */
+  --secondary: #84cc16; /* Light green for highlights and accents */
+  --secondary-foreground: #ffffff; /* Text on secondary buttons */
+  --muted: #f0fdf4; /* For subtle backgrounds */
+  --muted-foreground: #374151; /* Text on muted backgrounds */
+  --accent: #84cc16; /* For links and actionable items */
+  --accent-foreground: #ffffff; /* Text on accent items */
+  --destructive: #be123c; /* For error messages or alerts */
+  --destructive-foreground: #ffffff; /* Text on destructive buttons */
+  --border: #e5e7eb; /* Light gray for borders */
+  --input: #f9fafb; /* Background for input fields */
+  --ring: rgba(21, 128, 61, 0.5); /* Focus ring color */
+  --chart-1: #6ee7b7; /* Chart colors */
+  --chart-2: #34d399;
+  --chart-3: #10b981;
+  --chart-4: #059669;
+  --chart-5: #047857;
+  --radius: 0.5rem; /* For button and card corner rounding */
+  --sidebar: #f0fdf4; /* Background for sidebar */
+  --sidebar-foreground: #374151; /* Text on sidebar */
+  --sidebar-primary: #15803d; /* Active link color */
+  --sidebar-primary-foreground: #ffffff; /* Text on active links */
+  --sidebar-accent: #84cc16; /* Sidebar accent color */
+  --sidebar-accent-foreground: #ffffff; /* Text on sidebar accent */
+  --sidebar-border: #e5e7eb; /* Sidebar border color */
+  --sidebar-ring: rgba(21, 128, 61, 0.5); /* Sidebar focus ring */
+}
+
+.dark {
+  /* Dark mode colors for professional appearance */
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
+  --popover: #1e293b;
+  --popover-foreground: #f1f5f9;
+  --primary: #22c55e;
+  --primary-foreground: #0f172a;
+  --secondary: #a3e635;
+  --secondary-foreground: #0f172a;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #a3e635;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #f1f5f9;
+  --border: #334155;
+  --input: #1e293b;
+  --ring: rgba(34, 197, 94, 0.5);
+  --chart-1: #22c55e;
+  --chart-2: #16a34a;
+  --chart-3: #15803d;
+  --chart-4: #166534;
+  --chart-5: #14532d;
+  --sidebar: #1e293b;
+  --sidebar-foreground: #f1f5f9;
+  --sidebar-primary: #22c55e;
+  --sidebar-primary-foreground: #0f172a;
+  --sidebar-accent: #334155;
+  --sidebar-accent-foreground: #f1f5f9;
+  --sidebar-border: #334155;
+  --sidebar-ring: rgba(34, 197, 94, 0.5);
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+/* Added responsive breakpoint utilities and smooth transitions */
+@layer utilities {
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .glass-effect {
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.8);
+  }
+
+  .dark .glass-effect {
+    background: rgba(30, 41, 59, 0.8);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #9ca3af; /* Tailwind gray-400 */
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280; /* Tailwind gray-500 */
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #eaebea transparent;
+}
