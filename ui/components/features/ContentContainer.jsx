@@ -5,7 +5,7 @@ import "react-resizable/css/styles.css";
 import { motion, AnimatePresence } from "framer-motion";
 import Masonry from "react-masonry-css";
 
-// import Layout from "@/components/common/Layout";
+import Layout from "@/components/common/Layout";
 import Cards from "@/components/common/Cards";
 import { TableContent, Projects } from "@/components/common/TableContent";
 import Charts from "@/components/common/Charts";

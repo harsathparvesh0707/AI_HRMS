@@ -1,2 +1,70 @@
-.next
-.claude
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+/dist
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+# env files
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# testing
+/coverage
+*.lcov
+
+# misc
+.DS_Store
+*.pem
+Thumb.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# Claude AI
+.claude/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache
