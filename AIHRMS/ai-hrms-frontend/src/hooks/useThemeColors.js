@@ -1,0 +1,96 @@
+import useStore from '../store/useStore';
+
+const useThemeColors = () => {
+  const { colorTheme } = useStore();
+
+  const themeColors = {
+    blue: {
+      gradient: 'from-blue-600 to-cyan-600',
+      gradientHover: 'hover:from-blue-700 hover:to-cyan-700',
+      bg: 'bg-blue-600',
+      bgHover: 'hover:bg-blue-700',
+      text: 'text-blue-600',
+      textDark: 'dark:text-blue-400',
+      border: 'border-blue-500',
+      ring: 'ring-blue-500',
+      bgLight: 'bg-blue-50',
+      bgDark: 'dark:bg-blue-900/20',
+      iconGradient: 'from-blue-600 to-cyan-600',
+      pinnedGradient: 'from-cyan-500 to-blue-500',
+    },
+    indigo: {
+      gradient: 'from-indigo-600 to-purple-600',
+      gradientHover: 'hover:from-indigo-700 hover:to-purple-700',
+      bg: 'bg-indigo-600',
+      bgHover: 'hover:bg-indigo-700',
+      text: 'text-indigo-600',
+      textDark: 'dark:text-indigo-400',
+      border: 'border-indigo-500',
+      ring: 'ring-indigo-500',
+      bgLight: 'bg-indigo-50',
+      bgDark: 'dark:bg-indigo-900/20',
+      iconGradient: 'from-indigo-600 to-purple-600',
+      pinnedGradient: 'from-purple-500 to-indigo-500',
+    },
+    green: {
+      gradient: 'from-emerald-600 to-teal-600',
+      gradientHover: 'hover:from-emerald-700 hover:to-teal-700',
+      bg: 'bg-emerald-600',
+      bgHover: 'hover:bg-emerald-700',
+      text: 'text-emerald-600',
+      textDark: 'dark:text-emerald-400',
+      border: 'border-emerald-500',
+      ring: 'ring-emerald-500',
+      bgLight: 'bg-emerald-50',
+      bgDark: 'dark:bg-emerald-900/20',
+      iconGradient: 'from-emerald-600 to-teal-600',
+      pinnedGradient: 'from-teal-500 to-emerald-500',
+    },
+    red: {
+      gradient: 'from-red-600 to-orange-600',
+      gradientHover: 'hover:from-red-700 hover:to-orange-700',
+      bg: 'bg-red-600',
+      bgHover: 'hover:bg-red-700',
+      text: 'text-red-600',
+      textDark: 'dark:text-red-400',
+      border: 'border-red-500',
+      ring: 'ring-red-500',
+      bgLight: 'bg-red-50',
+      bgDark: 'dark:bg-red-900/20',
+      iconGradient: 'from-red-600 to-orange-600',
+      pinnedGradient: 'from-orange-500 to-red-500',
+    },
+    slate: {
+      gradient: 'from-slate-600 to-slate-700',
+      gradientHover: 'hover:from-slate-700 hover:to-slate-800',
+      bg: 'bg-slate-600',
+      bgHover: 'hover:bg-slate-700',
+      text: 'text-slate-600',
+      textDark: 'dark:text-slate-400',
+      border: 'border-slate-500',
+      ring: 'ring-slate-500',
+      bgLight: 'bg-slate-50',
+      bgDark: 'dark:bg-slate-900/20',
+      iconGradient: 'from-slate-600 to-slate-700',
+      pinnedGradient: 'from-slate-500 to-slate-600',
+    },
+    orange: {
+      gradient: 'from-orange-600 to-amber-600',
+      gradientHover: 'hover:from-orange-700 hover:to-amber-700',
+      bg: 'bg-orange-600',
+      bgHover: 'hover:bg-orange-700',
+      text: 'text-orange-600',
+      textDark: 'dark:text-orange-400',
+      border: 'border-orange-500',
+      ring: 'ring-orange-500',
+      bgLight: 'bg-orange-50',
+      bgDark: 'dark:bg-orange-900/20',
+      iconGradient: 'from-orange-600 to-amber-600',
+      pinnedGradient: 'from-amber-500 to-orange-500',
+    },
+  };
+
+  return themeColors[colorTheme] || themeColors.blue;
+};
+
+export default useThemeColors;
