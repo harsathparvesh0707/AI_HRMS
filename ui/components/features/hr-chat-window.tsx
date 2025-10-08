@@ -45,7 +45,7 @@ export function HRChatWindow({ messages, onSendMessage, onClose, selectedEmploye
   }
 
   return (
-    <div className="fixed right-0 top-0 h-full w-80 bg-background border-l border-border slide-in-right z-40">
+    <div className="fixed right-0 top-0 h-full w-80 bg-background border-l border-border slide-in-right z-[9999]" data-chat-window>
       <Card className="h-full rounded-none border-0">
         <CardHeader className="border-b border-border">
           <div className="flex items-center justify-between">

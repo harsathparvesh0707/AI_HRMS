@@ -141,16 +141,7 @@ export default function HRDashboard() {
 
         <div
           className={`
-            fixed inset-y-16 right-0 z-<button
-  className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 rounded-full hover:bg-indigo-300/50 transition"
-  onClick={() => {
-    setIsLoggedIn(false);   // reset login state
-    setShowDashboard(false); // hide dashboard with fade effect
-  }}
-> 
-  <LogOut className="h-5 w-5" />
-  Logout
-</button>30 w-full max-w-sm transition-smooth lg:relative lg:inset-y-0 lg:z-auto lg:w-96
+            fixed inset-y-16 right-0 z-50 w-full max-w-sm transition-smooth lg:relative lg:inset-y-0 lg:z-auto lg:w-96
             ${isMobileChatOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"}
           `}
         >

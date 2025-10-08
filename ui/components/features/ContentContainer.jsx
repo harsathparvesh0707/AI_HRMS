@@ -220,7 +220,7 @@ const ContentContainer = ({ onShowEmployeeList }) => {
             {/* === PINNED CARDS === */}
             {pinned.length > 0 && (
               <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-3 text-blue-600">Pinned Cards</h3>
+                {/* <h3 className="text-lg font-semibold mb-3 text-blue-600"></h3> */}
                 <GridLayout
                   className="layout bg-blue-50 rounded-lg p-2 min-h-[150px]"
                   layout={buildLayout(pinned, 0)}

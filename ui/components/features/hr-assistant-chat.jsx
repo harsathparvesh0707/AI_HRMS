@@ -64,7 +64,7 @@ export default function HRAssistantChat() {
   };
 
   return (
-    <div className="fixed top-3 left-2 w-[95%] h-[97%] flex flex-col rounded-2xl shadow-2xl bg-background overflow-hidden">
+    <div className="fixed top-3 left-2 w-[95%] h-[97%] flex flex-col rounded-2xl shadow-2xl bg-background overflow-hidden z-50" data-chat-window>
       <div className="flex items-center justify-between gap-2 p-4 border-b bg-indigo-500   text-primary-foreground">
         <div className="flex items-center gap-2">
           <MessageCircle className="h-5 w-5" />

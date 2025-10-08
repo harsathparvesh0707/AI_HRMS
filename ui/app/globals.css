@@ -161,3 +161,27 @@
   scrollbar-width: thin;
   scrollbar-color: #eaebea transparent;
 }
+
+/* Prevent hover effects behind chat windows */
+.chat-window-active {
+  pointer-events: none;
+}
+
+.chat-window-active * {
+  pointer-events: auto;
+}
+
+/* Ensure chat windows stay on top */
+[data-chat-window] {
+  z-index: 9999 !important;
+  position: relative;
+}
+
+/* Disable hover effects when chat is open */
+body:has([data-chat-window]) .hover\:shadow-md:hover {
+  box-shadow: none !important;
+}
+
+body:has([data-chat-window]) .hover\:bg-muted\/50:hover {
+  background-color: transparent !important;
+}

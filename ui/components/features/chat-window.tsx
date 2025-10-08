@@ -78,7 +78,8 @@ export function ChatWindow({ messages, onSendMessage, onClose }: ChatWindowProps
 
   return (
     <div
-      className={`fixed right-0 top-0 h-full w-96 bg-card border-l border-border shadow-2xl slide-in-right z-40 flex flex-col ${isMinimized ? "h-16" : ""}`}
+      className={`fixed right-0 top-0 h-full w-96 bg-card border-l border-border shadow-2xl slide-in-right z-[9999] flex flex-col ${isMinimized ? "h-16" : ""}`}
+      data-chat-window
     >
       {/* Chat Header */}
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-border">
