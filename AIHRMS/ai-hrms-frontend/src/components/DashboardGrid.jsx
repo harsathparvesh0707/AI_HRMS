@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -14,13 +15,17 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import DashboardCard from './DashboardCard';
+import PinnedIconCard from './PinnedIconCard';
+import CreateCardModal from './CreateCardModal';
 import useStore from '../store/useStore';
 import useThemeColors from '../hooks/useThemeColors';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
 
 const DashboardGrid = () => {
   const { cards, reorderCards } = useStore();
   const colors = useThemeColors();
+  const [pinnedExpanded, setPinnedExpanded] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const pinnedCards = cards.filter((card) => card.pinned);
   const unpinnedCards = cards.filter((card) => !card.pinned);
@@ -56,23 +61,41 @@ const DashboardGrid = () => {
         {/* Pinned Section */}
         {pinnedCards.length > 0 && (
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="h-0.5 w-0.5 bg-blue-600 rounded-full"></div>
-              <h2 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
-                Pinned
-              </h2>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-0.5 w-0.5 bg-blue-600 rounded-full"></div>
+                <h2 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                  Pinned
+                </h2>
+              </div>
+              <button
+                onClick={() => setPinnedExpanded(!pinnedExpanded)}
+                className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+              >
+                {pinnedExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
             </div>
             <SortableContext
               items={pinnedCards.map((c) => c.id)}
               strategy={rectSortingStrategy}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                <AnimatePresence mode="popLayout">
-                  {pinnedCards.map((card) => (
-                    <DashboardCard key={card.id} card={card} />
-                  ))}
-                </AnimatePresence>
-              </div>
+              {pinnedExpanded ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  <AnimatePresence mode="popLayout">
+                    {pinnedCards.map((card) => (
+                      <DashboardCard key={card.id} card={card} />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                  <AnimatePresence mode="popLayout">
+                    {pinnedCards.map((card) => (
+                      <PinnedIconCard key={card.id} card={card} />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
             </SortableContext>
           </div>
         )}
@@ -86,7 +109,10 @@ const DashboardGrid = () => {
                 Dashboard
               </h2>
             </div>
-            <button className={`p-1.5 bg-gradient-to-r ${colors.gradient} text-white rounded-lg shadow-md hover:shadow-lg transition-shadow`}>
+            <button 
+              onClick={() => setIsCreateModalOpen(true)}
+              className={`p-1.5 bg-gradient-to-r ${colors.gradient} text-white rounded-lg shadow-md hover:shadow-lg transition-shadow`}
+            >
               <Plus className="w-4 h-4" />
             </button>
           </div>
@@ -121,12 +147,20 @@ const DashboardGrid = () => {
               Ask the AI assistant to create personalized cards for your
               dashboard, or add them manually.
             </p>
-            <button className={`px-4 py-2 bg-gradient-to-r ${colors.gradient} text-white rounded-lg shadow-md hover:shadow-lg transition-shadow font-medium text-sm`}>
+            <button 
+              onClick={() => setIsCreateModalOpen(true)}
+              className={`px-4 py-2 bg-gradient-to-r ${colors.gradient} text-white rounded-lg shadow-md hover:shadow-lg transition-shadow font-medium text-sm`}
+            >
               Add Your First Card
             </button>
           </motion.div>
         )}
       </div>
+      
+      <CreateCardModal 
+        isOpen={isCreateModalOpen} 
+        onClose={() => setIsCreateModalOpen(false)} 
+      />
     </DndContext>
   );
 };
