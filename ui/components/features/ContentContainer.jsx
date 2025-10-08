@@ -14,7 +14,7 @@ import Candidate from "@/components/common/Candidate";
 import DynamicCard from "@/components/common/DynamicCard";
 import EmployeeTable from "@/components/features/employee-table";
 
-import { Users, Briefcase, UserMinus, Pin, X, MoreHorizontal } from "lucide-react";
+import { Users, Briefcase, UserMinus, Pin, X, MoreHorizontal, ChevronDown, ChevronUp, Table, BarChart3, Bell, Calendar, FolderOpen, UserCheck } from "lucide-react";
 import { fetchDashboardData } from "@/services/dashboardService";
 import "@/styles/masonry.css";
 
@@ -29,6 +29,7 @@ const ContentContainer = ({ onShowEmployeeList }) => {
   const [dashboardData, setDashboardData] = useState(null);
   const [allCards, setAllCards] = useState([]);
   const [showPinLimitModal, setShowPinLimitModal] = useState(false);
+  const [pinnedCollapsed, setPinnedCollapsed] = useState(true);
 
   // === Employee Stats (from first code) ===
   const employeeStats = [
@@ -151,7 +152,15 @@ const ContentContainer = ({ onShowEmployeeList }) => {
 
   const getCardActions = (id) => (
     <>
-      <button onClick={() => togglePin(id)} className="p-1 rounded">
+      <button 
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('Pin clicked for:', id);
+          togglePin(id);
+        }} 
+        className="p-1 rounded hover:bg-gray-100 z-50 relative pointer-events-auto"
+      >
         <Pin className={`w-4 h-4 ${pinned.includes(id) ? "text-blue-600 fill-blue-600" : "text-gray-500"}`} />
       </button>
       <button className="p-1 rounded">
@@ -196,6 +205,22 @@ const ContentContainer = ({ onShowEmployeeList }) => {
       h: 2,
     }));
 
+  const getCardIcon = (id) => {
+    const iconMap = {
+      employeeTable: <Table className="w-6 h-6" />,
+      attendance: <UserCheck className="w-6 h-6" />,
+      leaveBalance: <Calendar className="w-6 h-6" />,
+      notifications: <Bell className="w-6 h-6" />,
+      upcomingProjects: <FolderOpen className="w-6 h-6" />,
+      recentProjects: <FolderOpen className="w-6 h-6" />,
+      latestCandidates: <Users className="w-6 h-6" />,
+      "stats-0": <Users className="w-6 h-6" />,
+      "stats-1": <Briefcase className="w-6 h-6" />,
+      "stats-2": <UserMinus className="w-6 h-6" />
+    };
+    return iconMap[id] || <BarChart3 className="w-6 h-6" />;
+  };
+
   const renderCard = (id) => {
     const card = allCards.find((c) => c.id === id);
     if (!card) return null;
@@ -204,6 +229,34 @@ const ContentContainer = ({ onShowEmployeeList }) => {
         <Cards header={card.header} actions={getCardActions(id)}>
           {card.component}
         </Cards>
+      </div>
+    );
+  };
+
+  const renderPinnedIcon = (id) => {
+    const card = allCards.find((c) => c.id === id);
+    if (!card) return null;
+    return (
+      <div
+        key={id}
+        className="relative flex flex-col items-center p-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-blue-200"
+        onClick={() => setPinnedCollapsed(false)}
+      >
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            togglePin(id);
+          }}
+          className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 text-xs"
+        >
+          ×
+        </button>
+        <div className="text-blue-600 mb-2">
+          {getCardIcon(id)}
+        </div>
+        <span className="text-xs text-gray-600 text-center font-medium">
+          {card.header}
+        </span>
       </div>
     );
   };
@@ -220,19 +273,48 @@ const ContentContainer = ({ onShowEmployeeList }) => {
             {/* === PINNED CARDS === */}
             {pinned.length > 0 && (
               <div className="mb-6">
-                {/* <h3 className="text-lg font-semibold mb-3 text-blue-600"></h3> */}
-                <GridLayout
-                  className="layout bg-blue-50 rounded-lg p-2 min-h-[150px]"
-                  layout={buildLayout(pinned, 0)}
-                  cols={12}
-                  rowHeight={150}
-                  width={1360}
-                  margin={[12, 12]}
-                  isResizable
-                  isDraggable
-                >
-                  {pinned.map(renderCard)}
-                </GridLayout>
+                {pinnedCollapsed ? (
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-blue-700"></h3>
+                      <button
+                        onClick={() => setPinnedCollapsed(false)}
+                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm"
+                      >
+                        <span>Expand</span>
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex gap-3 flex-wrap">
+                      {pinned.map(renderPinnedIcon)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-blue-50 rounded-lg p-2">
+                    <div className="flex items-center justify-between mb-3 px-2">
+                      <h3 className="text-sm font-semibold text-blue-700"></h3>
+                      <button
+                        onClick={() => setPinnedCollapsed(true)}
+                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm"
+                      >
+                        <span>Collapse</span>
+                        <ChevronUp className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <GridLayout
+                      className="layout min-h-[150px]"
+                      layout={buildLayout(pinned, 0)}
+                      cols={12}
+                      rowHeight={150}
+                      width={1360}
+                      margin={[12, 12]}
+                      isResizable={false}
+                      isDraggable={false}
+                    >
+                      {pinned.map(renderCard)}
+                    </GridLayout>
+                  </div>
+                )}
               </div>
             )}
 
