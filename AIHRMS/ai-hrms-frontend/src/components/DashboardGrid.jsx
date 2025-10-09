@@ -13,16 +13,24 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   rectSortingStrategy,
-} from '@dnd-kit/sortable';
+} from '@dnd-kit/sortable'
 import DashboardCard from './DashboardCard';
-import PinnedIconCard from './PinnedIconCard';
 import CreateCardModal from './CreateCardModal';
+import PinnedIconCard from './PinnedIconCard';
+import DynamicTable from './DynamicTable';
 import useStore from '../store/useStore';
 import useThemeColors from '../hooks/useThemeColors';
-import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus,X } from 'lucide-react';
 
 const DashboardGrid = () => {
-  const { cards, reorderCards } = useStore();
+  const { 
+    cards, 
+    reorderCards, 
+    searchResults, 
+    isSearching, 
+    showDynamicTable, 
+    hideDynamicTable 
+  } = useStore();
   const colors = useThemeColors();
   const [pinnedExpanded, setPinnedExpanded] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -51,6 +59,8 @@ const DashboardGrid = () => {
     }
   };
 
+
+  
   return (
     <DndContext
       sensors={sensors}
@@ -58,8 +68,28 @@ const DashboardGrid = () => {
       onDragEnd={handleDragEnd}
     >
       <div className="px-4 py-3 space-y-4 bg-transparent">
+        {/* Dynamic Table */}
+        {showDynamicTable && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-0.5 w-0.5 bg-green-600 rounded-full"></div>
+                <h2 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                  Search Results
+                </h2>
+              </div>
+              <button 
+                onClick={hideDynamicTable}
+                className="p-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <DynamicTable data={searchResults} isLoading={isSearching} />
+          </div>
+        )}
         {/* Pinned Section */}
-        {pinnedCards.length > 0 && (
+        {!showDynamicTable && pinnedCards.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -101,6 +131,7 @@ const DashboardGrid = () => {
         )}
 
         {/* All Cards Section */}
+        {!showDynamicTable && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -130,8 +161,10 @@ const DashboardGrid = () => {
           </SortableContext>
         </div>
 
+        )}
+        
         {/* Empty State */}
-        {cards.length === 0 && (
+        {!showDynamicTable && cards.length === 0 && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}

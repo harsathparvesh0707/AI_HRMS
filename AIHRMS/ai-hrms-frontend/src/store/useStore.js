@@ -1,5 +1,7 @@
-import { create } from 'zustand';
+  import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import qwenFormatter from '../services/qwenFormatter';
+import searchApi from '../services/searchApi';
 
 const useStore = create(
   persist(
@@ -295,6 +297,16 @@ const useStore = create(
 
       reorderCards: (newCards) => set({ cards: newCards }),
 
+      // API Response Formatting
+      formatApiResponse: async (data, context = 'dashboard') => {
+        try {
+          return await qwenFormatter.formatResponse(data, context);
+        } catch (error) {
+          console.error('Failed to format API response:', error);
+          return data;
+        }
+      },
+
       // Chat Messages
       messages: [
         {
@@ -331,6 +343,32 @@ const useStore = create(
       toggleChat: () =>
         set((state) => ({ isChatExpanded: !state.isChatExpanded })),
       setTyping: (isTyping) => set({ isTyping }),
+
+      // Search and Dynamic Table
+      searchResults: null,
+      isSearching: false,
+      showDynamicTable: false,
+      
+      searchAndShowTable: async (query) => {
+        set({ isSearching: true, showDynamicTable: true });
+        try {
+          const results = await searchApi.search(query);
+          
+          // Extract data from nested structure
+          let tableData = null;
+          if (results.data?.database_results) {
+            const firstResult = Object.values(results.data.database_results)[0];
+            tableData = firstResult?.data || null;
+          }
+          
+          set({ searchResults: tableData, isSearching: false });
+        } catch (error) {
+          console.error('Search failed:', error);
+          set({ isSearching: false, searchResults: null });
+        }
+      },
+      
+      hideDynamicTable: () => set({ showDynamicTable: false, searchResults: null }),
     }),
     {
       name: 'hrms-storage',

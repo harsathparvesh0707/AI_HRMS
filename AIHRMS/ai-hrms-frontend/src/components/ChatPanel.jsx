@@ -34,6 +34,7 @@ const ChatPanel = () => {
     toggleChat,
     isTyping,
     setTyping,
+    searchAndShowTable,
   } = useStore();
   const colors = useThemeColors();
   const [inputValue, setInputValue] = useState('');
@@ -60,21 +61,21 @@ const ChatPanel = () => {
     setInputValue('');
     setTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const responses = [
-        "I've updated your dashboard with the requested information.",
-        'Here are your pending approvals. Would you like me to create a card for tracking them?',
-        "I've added a new performance metrics card to your dashboard.",
-        'Your leave request has been recorded. Is there anything else I can help you with?',
-      ];
-
+    // Search and show dynamic table
+    try {
+      await searchAndShowTable(inputValue);
       addMessage({
         role: 'assistant',
-        content: responses[Math.floor(Math.random() * responses.length)],
+        content: 'I\'ve searched and displayed the results in a dynamic table on your dashboard.',
       });
+    } catch (error) {
+      addMessage({
+        role: 'assistant',
+        content: 'Sorry, I couldn\'t process your request. Please try again.',
+      });
+    } finally {
       setTyping(false);
-    }, 1500);
+    }
   };
 
   const handleQuickAction = (action) => {
