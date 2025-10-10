@@ -34,7 +34,7 @@ const ChatPanel = () => {
     toggleChat,
     isTyping,
     setTyping,
-    searchAndShowTable,
+    generateDynamicUI,
   } = useStore();
   const colors = useThemeColors();
   const [inputValue, setInputValue] = useState('');
@@ -56,19 +56,18 @@ const ChatPanel = () => {
       role: 'user',
       content: inputValue,
     };
-
+    
+    const queryToSend = inputValue;
     addMessage(userMessage);
     setInputValue('');
     setTyping(true);
 
-    // Search and show dynamic table
+    // Generate dynamic UI
     try {
-      await searchAndShowTable(inputValue);
-      addMessage({
-        role: 'assistant',
-        content: 'I\'ve searched and displayed the results in a dynamic table on your dashboard.',
-      });
+      console.log('Sending query:', queryToSend);
+      await generateDynamicUI(queryToSend);
     } catch (error) {
+      console.error('Error in handleSend:', error);
       addMessage({
         role: 'assistant',
         content: 'Sorry, I couldn\'t process your request. Please try again.',

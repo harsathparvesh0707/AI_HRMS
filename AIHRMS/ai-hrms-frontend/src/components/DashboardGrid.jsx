@@ -17,19 +17,20 @@ import {
 import DashboardCard from './DashboardCard';
 import CreateCardModal from './CreateCardModal';
 import PinnedIconCard from './PinnedIconCard';
-import DynamicTable from './DynamicTable';
+import DynamicUIComponent from './DynamicUIComponent';
 import useStore from '../store/useStore';
 import useThemeColors from '../hooks/useThemeColors';
-import { ChevronDown, ChevronUp, Plus,X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus,X } from 'lucide-react';  
 
 const DashboardGrid = () => {
   const { 
     cards, 
-    reorderCards, 
-    searchResults, 
-    isSearching, 
-    showDynamicTable, 
-    hideDynamicTable 
+    reorderCards,
+    dynamicLayout,
+    dynamicData,
+    isGenerating,
+    showDynamicUI,
+    hideDynamicUI
   } = useStore();
   const colors = useThemeColors();
   const [pinnedExpanded, setPinnedExpanded] = useState(true);
@@ -68,28 +69,31 @@ const DashboardGrid = () => {
       onDragEnd={handleDragEnd}
     >
       <div className="px-4 py-3 space-y-4 bg-transparent">
-        {/* Dynamic Table */}
-        {showDynamicTable && (
+        {/* Dynamic UI */}
+        {showDynamicUI && (
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="h-0.5 w-0.5 bg-green-600 rounded-full"></div>
-                <h2 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
-                  Search Results
-                </h2>
-              </div>
+            <div className="flex items-center justify-end">
               <button 
-                onClick={hideDynamicTable}
+                onClick={hideDynamicUI}
                 className="p-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <DynamicTable data={searchResults} isLoading={isSearching} />
+            {isGenerating ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                <span className="ml-3 text-slate-600">Loading data...</span>
+              </div>
+            ) : (
+              dynamicLayout && dynamicData && (
+                <DynamicUIComponent layoutData={dynamicLayout} data={dynamicData} />
+              )
+            )}
           </div>
         )}
         {/* Pinned Section */}
-        {!showDynamicTable && pinnedCards.length > 0 && (
+        {!showDynamicUI && pinnedCards.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -131,7 +135,7 @@ const DashboardGrid = () => {
         )}
 
         {/* All Cards Section */}
-        {!showDynamicTable && (
+        {!showDynamicUI && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -164,7 +168,7 @@ const DashboardGrid = () => {
         )}
         
         {/* Empty State */}
-        {!showDynamicTable && cards.length === 0 && (
+        {!showDynamicUI && cards.length === 0 && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
