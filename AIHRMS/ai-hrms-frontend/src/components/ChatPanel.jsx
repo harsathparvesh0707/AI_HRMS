@@ -58,16 +58,41 @@ const ChatPanel = () => {
     };
     
     const queryToSend = inputValue;
+    console.log('ChatPanel: Sending message:', queryToSend);
     addMessage(userMessage);
     setInputValue('');
     setTyping(true);
 
     // Generate dynamic UI
     try {
-      console.log('Sending query:', queryToSend);
+      console.log('ChatPanel: Calling generateDynamicUI with:', queryToSend);
       await generateDynamicUI(queryToSend);
+      console.log('ChatPanel: generateDynamicUI completed');
+      
+      // Add dynamic success response based on query
+      const getResponseMessage = (query) => {
+        const q = query.toLowerCase();
+        if (q.includes('show all') || q.includes('list all')) {
+          return 'Here are all the employees in the system. The complete list is displayed above.';
+        }
+        if (q.includes('find') || q.includes('search')) {
+          return 'I found the employee(s) matching your search criteria. Results are shown above.';
+        }
+        if (q.includes('employee') && q.includes('details')) {
+          return 'Here are the detailed employee records you requested.';
+        }
+        if (q.includes('active') || q.includes('status')) {
+          return 'I\'ve retrieved the employee status information you requested.';
+        }
+        return `I've processed your request: "${query}". The results are displayed above.`;
+      };
+      
+      addMessage({
+        role: 'assistant',
+        content: getResponseMessage(queryToSend),
+      });
     } catch (error) {
-      console.error('Error in handleSend:', error);
+      console.error('ChatPanel: Error in handleSend:', error);
       addMessage({
         role: 'assistant',
         content: 'Sorry, I couldn\'t process your request. Please try again.',

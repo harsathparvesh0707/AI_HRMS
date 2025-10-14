@@ -1,41 +1,268 @@
 import React from 'react';
 
 const DynamicUIComponent = ({ layoutData, data }) => {
+  console.log('=== DYNAMIC UI DEBUG ===');
+  console.log('Full layoutData:', layoutData);
+  console.log('Full data:', data);
+  
   if (!layoutData || !data) {
-    return <div className="p-4 text-red-500">No data or layout available</div>;
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+        <h3 className="text-red-800 font-bold">No data or layout available</h3>
+      </div>
+    );
   }
 
+  // Extract employee data
   const employees = data.database_results?.select_employees_0?.data || [];
+  
   const layout = layoutData.layout || layoutData;
   const components = layout.components || [];
+  const dataMapping = layoutData.dataMapping || {};
+  
+  console.log('Extracted employees:', employees);
+
+  if (employees.length === 0) {
+    return (
+      <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <h3 className="text-yellow-800 font-bold">No Employee Data Found</h3>
+      </div>
+    );
+  }
 
   const getGridColsClass = (columns) => {
-    switch (columns) {
-      case 1: return 'grid-cols-1';
-      case 2: return 'grid-cols-1 md:grid-cols-2';
-      case 3: return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
-      case 4: return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4';
-      default: return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+    return 'grid-cols-1'; // Always use single column for full control
+  };
+
+  const getSpanClass = (span) => {
+    // For single column layout, all components span full width
+    return 'col-span-1';
+  };
+
+  const getFieldLabel = (fieldKey) => {
+    return dataMapping[fieldKey] || fieldKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const getComponentData = (dataField) => {
+    if (!dataField) return null;
+    
+    try {
+      if (dataField === 'database_results.select_employees_0.data') {
+        return employees;
+      }
+      
+      if (dataField === 'database_results.select_employees_0.data[0]' && employees.length > 0) {
+        return employees[0];
+      }
+      
+      return employees;
+    } catch (error) {
+      console.error('Error getting component data:', error);
+      return employees;
     }
   };
 
-  return (
-    <div className={`grid ${getGridColsClass(layout.columns)} gap-6`}>
-      {components.map((component, index) => (
-        <div key={index} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-          <h3 className="font-bold mb-2 text-slate-900 dark:text-white">{component.title}</h3>
-          {employees.map((emp, empIdx) => (
-            <div key={empIdx} className="mb-2 p-2 border-b border-slate-200 dark:border-slate-600">
-              {Object.entries(emp).map(([key, value]) => (
-                <div key={key} className="text-slate-700 dark:text-slate-300">
-                  <strong>{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}: </strong>
-                  {value || 'N/A'}
-                </div>
-              ))}
+  const renderComponent = (component, componentData) => {
+    // Auto-decide format: card for single employee, table for multiple
+    const isMultipleEmployees = Array.isArray(componentData) && componentData.length > 1;
+    const isSingleEmployee = (Array.isArray(componentData) && componentData.length === 1) || 
+                            (!Array.isArray(componentData) && componentData && typeof componentData === 'object');
+    
+    switch (component.type) {
+      case 'header':
+        return (
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {component.title}
+            </h1>
+            {component.subtitle && (
+              <p className="text-gray-600 dark:text-gray-300 mt-2 text-lg">
+                {component.subtitle}
+              </p>
+            )}
+          </div>
+        );
+
+      case 'profile_card':
+        // Card format only for single employee details
+        const singleEmp = Array.isArray(componentData) ? componentData[0] : componentData;
+        if (!singleEmp || typeof singleEmp !== 'object') {
+          return <div className="text-gray-500">No employee data available</div>;
+        }
+        
+        const profileFields = Object.keys(singleEmp).filter(field => field !== 'last_name');
+        
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {profileFields.map((key) => (
+              <div key={key} className="flex justify-between items-center py-3 px-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {key === 'first_name' ? 'name' : getFieldLabel(key)}:
+                </span>
+                <span className="text-gray-900 dark:text-white font-semibold">
+                  {key === 'first_name' 
+                    ? `${singleEmp.first_name || ''} ${singleEmp.last_name || ''}`.trim() || 'N/A'
+                    : singleEmp[key] || 'N/A'
+                  }
+                </span>
+              </div>
+            ))}
+          </div>
+        );
+
+      case 'data_table':
+        if (!Array.isArray(componentData) || componentData.length === 0) {
+          return <div className="text-gray-500">No employee data available</div>;
+        }
+
+        // Check if this is active or freepool employees query - show cards for these
+        const isActiveEmployees = component.title?.toLowerCase().includes('active') || 
+                                 componentData.every(emp => emp.employee_status === 'Active');
+        const isFreepoolEmployees = component.title?.toLowerCase().includes('freepool') || 
+                                   component.title?.toLowerCase().includes('free pool');
+        
+        if (isActiveEmployees || isFreepoolEmployees) {
+          // Card format for active employees
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {componentData.map((emp, index) => {
+                const empFields = Object.keys(emp).filter(field => field !== 'last_name');
+                return (
+                  <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
+                    {empFields.map((key) => (
+                      <div key={key} className="flex justify-between items-center">
+                        <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">
+                          {key === 'first_name' ? 'name' : getFieldLabel(key)}:
+                        </span>
+                        <span className="text-gray-900 dark:text-white font-semibold text-sm">
+                          {key === 'first_name' 
+                            ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'N/A'
+                            : emp[key] || 'N/A'
+                          }
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      ))}
+          );
+        }
+
+        // Table format for all other cases
+        const fields = Object.keys(componentData[0]);
+        const displayFields = fields.filter(field => field !== 'last_name');
+        
+        return (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  {displayFields.map(field => (
+                    <th 
+                      key={field} 
+                      className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap"
+                    >
+                      {field === 'first_name' ? 'name' : getFieldLabel(field)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {componentData.map((item, index) => (
+                  <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    {displayFields.map(field => (
+                      <td 
+                        key={field} 
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white"
+                      >
+                        {field === 'first_name' 
+                          ? `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'N/A'
+                          : item[field] || 'N/A'
+                        }
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+
+      case 'metrics_grid':
+        if (Array.isArray(componentData) && componentData.length > 0) {
+          const activeCount = componentData.filter(emp => emp.employee_status === 'Active').length;
+          
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg text-center">
+                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  {componentData.length}
+                </div>
+                <div className="text-sm text-blue-700 dark:text-blue-300 mt-2">Total Employees</div>
+              </div>
+              <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-lg text-center">
+                <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                  {activeCount}
+                </div>
+                <div className="text-sm text-green-700 dark:text-green-300 mt-2">Active</div>
+              </div>
+              <div className="bg-orange-50 dark:bg-orange-900/20 p-6 rounded-lg text-center">
+                <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                  {componentData.length - activeCount}
+                </div>
+                <div className="text-sm text-orange-700 dark:text-orange-300 mt-2">Inactive</div>
+              </div>
+            </div>
+          );
+        }
+        return <div className="text-gray-500">No metrics data available</div>;
+
+      default:
+        return (
+          <div className="text-gray-500">
+            Component type "{component.type}" not implemented
+          </div>
+        );
+    }
+  };
+
+  const getComponentStyle = (component) => {
+    const baseStyle = "bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700";
+    
+    // For data tables, add extra padding and ensure full width
+    if (component.type === 'data_table') {
+      return `${baseStyle} col-span-1 overflow-hidden`;
+    }
+    
+    // For headers, less padding
+    if (component.type === 'header') {
+      return `${baseStyle} col-span-1 p-6`;
+    }
+    
+    // For other components
+    return `${baseStyle} col-span-1 p-6`;
+  };
+
+  return (
+    <div className="w-full space-y-6 p-4">
+      {components.map((component, index) => {
+        const componentData = getComponentData(component.dataField);
+        
+        return (
+          <div key={index} className="space-y-4">
+            {/* Show title outside the card/table for all non-header components */}
+            {component.type !== 'header' && (
+              <h3 className="font-bold text-gray-900 dark:text-white text-lg">
+                {component.title}
+              </h3>
+            )}
+            <div className={getComponentStyle(component)}>
+              {renderComponent(component, componentData)}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };

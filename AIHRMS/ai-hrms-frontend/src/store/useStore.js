@@ -167,8 +167,11 @@ const useStore = create(
       isGenerating: false,
       showDynamicUI: false,
       generationError: null,
+      userQuery: null,
       
       generateDynamicUI: async (query) => {
+        console.log('Store: generateDynamicUI called with:', query);
+        
         if (!query || query.trim().length === 0) {
           set({ generationError: 'Query cannot be empty' });
           return;
@@ -177,14 +180,15 @@ const useStore = create(
         set({ 
           isGenerating: true, 
           showDynamicUI: true,
-          generationError: null 
+          generationError: null,
+          userQuery: query
         });
         
         try {
-          console.log('Generating UI for:', query);
+          console.log('Store: Calling qwenFormatter.searchAndGenerateLayout');
           const { data, layout } = await qwenFormatter.searchAndGenerateLayout(query);
-          console.log('Search result:', data);
-          console.log('Generated layout:', layout);
+          console.log('Store: Received data:', data);
+          console.log('Store: Received layout:', layout);
           
           set({ 
             dynamicLayout: layout,
@@ -193,31 +197,22 @@ const useStore = create(
             generationError: null
           });
         } catch (error) {
-          console.error('Dynamic UI generation failed:', error);
+          console.error('Store: Dynamic UI generation failed:', error);
           
           const fallbackData = {
-            data: {
-              database_results: {
-                select_employees_0: {
-                  data: [
-                    { 
-                      employee_id: 1, 
-                      first_name: 'John', 
-                      last_name: 'Doe', 
-                      email: 'john@example.com', 
-                      phone: '123-456-7890', 
-                      date_of_joining: '2023-01-15' 
-                    },
-                    { 
-                      employee_id: 2, 
-                      first_name: 'Jane', 
-                      last_name: 'Smith', 
-                      email: 'jane@example.com', 
-                      phone: '123-456-7891', 
-                      date_of_joining: '2023-02-20' 
-                    }
-                  ]
-                }
+            database_results: {
+              select_employees_0: {
+                data: [
+                  { 
+                    employee_id: 1, 
+                    first_name: 'John', 
+                    last_name: 'Doe', 
+                    email: 'john@example.com', 
+                    phone: '123-456-7890', 
+                    date_of_joining: '2023-01-15',
+                    employee_status: 'Active'
+                  }
+                ]
               }
             }
           };
@@ -232,19 +227,13 @@ const useStore = create(
                   type: 'header',
                   title: 'Employee Information (Demo)',
                   subtitle: 'Fallback data due to generation error',
-                  style: {
-                    gridColumn: 'span 1',
-                    background: 'neutral',
-                    padding: '16px'
-                  }
+                  style: { gridColumn: 'span 1' }
                 },
                 {
                   type: 'data_table',
                   title: 'Employees',
-                  dataField: 'data.database_results.select_employees_0.data',
-                  style: {
-                    gridColumn: 'span 1'
-                  }
+                  dataField: 'database_results.select_employees_0.data',
+                  style: { gridColumn: 'span 1' }
                 }
               ]
             },
@@ -254,7 +243,8 @@ const useStore = create(
               last_name: 'Last Name',
               email: 'Email',
               phone: 'Phone',
-              date_of_joining: 'Join Date'
+              date_of_joining: 'Join Date',
+              employee_status: 'Status'
             }
           };
           

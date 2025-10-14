@@ -30,7 +30,8 @@ const DashboardGrid = () => {
     dynamicData,
     isGenerating,
     showDynamicUI,
-    hideDynamicUI
+    hideDynamicUI,
+    userQuery
   } = useStore();
   const colors = useThemeColors();
   const [pinnedExpanded, setPinnedExpanded] = useState(true);
@@ -87,7 +88,7 @@ const DashboardGrid = () => {
               </div>
             ) : (
               dynamicLayout && dynamicData && (
-                <DynamicUIComponent layoutData={dynamicLayout} data={dynamicData} />
+                <DynamicUIComponent layoutData={dynamicLayout} data={dynamicData} userQuery={userQuery} />
               )
             )}
           </div>
@@ -198,6 +199,7 @@ const DashboardGrid = () => {
         isOpen={isCreateModalOpen} 
         onClose={() => setIsCreateModalOpen(false)} 
       />
+
     </DndContext>
   );
 };
