@@ -21,6 +21,8 @@ const DynamicUIComponent = ({ layoutData, data }) => {
   const dataMapping = layoutData.dataMapping || {};
   
   console.log('Extracted employees:', employees);
+  console.log('Raw data structure:', data);
+  console.log('Layout components:', components);
 
   if (employees.length === 0) {
     return (
@@ -63,6 +65,73 @@ const DynamicUIComponent = ({ layoutData, data }) => {
   };
 
   const renderComponent = (component, componentData) => {
+    // Handle LLM-generated components with actual data mapping
+    if (component.type === 'llm_generated') {
+      // Get actual employee data
+      const actualEmployees = employees || [];
+      console.log('LLM component - actual employees:', actualEmployees);
+      console.log('Component details:', component);
+      
+      if (component.componentType === 'table' && actualEmployees.length > 0) {
+        const fields = Object.keys(actualEmployees[0]).filter(field => field !== 'last_name');
+        
+        return (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  {fields.map(field => (
+                    <th key={field} className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      {field === 'first_name' ? 'name' : getFieldLabel(field)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {actualEmployees.map((emp, index) => (
+                  <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    {fields.map(field => (
+                      <td key={field} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {field === 'first_name' 
+                          ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'N/A'
+                          : emp[field] || 'N/A'
+                        }
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+      
+      if (component.componentType === 'card' && actualEmployees.length > 0) {
+        const emp = actualEmployees[0];
+        const empFields = Object.keys(emp).filter(field => field !== 'last_name');
+        
+        return (
+          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
+            {empFields.map((key) => (
+              <div key={key} className="flex justify-between items-center">
+                <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">
+                  {key === 'first_name' ? 'name' : getFieldLabel(key)}:
+                </span>
+                <span className="text-gray-900 dark:text-white font-semibold text-sm">
+                  {key === 'first_name' 
+                    ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'N/A'
+                    : emp[key] || 'N/A'
+                  }
+                </span>
+              </div>
+            ))}
+          </div>
+        );
+      }
+      
+      return <div className="text-gray-500">No employee data available</div>;
+    }
+    
     // Auto-decide format: card for single employee, table for multiple
     const isMultipleEmployees = Array.isArray(componentData) && componentData.length > 1;
     const isSingleEmployee = (Array.isArray(componentData) && componentData.length === 1) || 
@@ -122,9 +191,9 @@ const DynamicUIComponent = ({ layoutData, data }) => {
                                    component.title?.toLowerCase().includes('free pool');
         
         if (isActiveEmployees || isFreepoolEmployees) {
-          // Card format for active employees
+          // Always use 2-column grid for active/freepool employees
           return (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-6">
               {componentData.map((emp, index) => {
                 const empFields = Object.keys(emp).filter(field => field !== 'last_name');
                 return (
@@ -189,6 +258,37 @@ const DynamicUIComponent = ({ layoutData, data }) => {
           </div>
         );
 
+      case 'card_grid':
+        if (!Array.isArray(componentData) || componentData.length === 0) {
+          return <div className="text-gray-500">No employee data available</div>;
+        }
+
+        // Always use 2-column grid for card display
+        return (
+          <div className="grid grid-cols-2 gap-6">
+            {componentData.map((emp, index) => {
+              const empFields = Object.keys(emp).filter(field => field !== 'last_name');
+              return (
+                <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
+                  {empFields.map((key) => (
+                    <div key={key} className="flex justify-between items-center">
+                      <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">
+                        {key === 'first_name' ? 'name' : getFieldLabel(key)}:
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-semibold text-sm">
+                        {key === 'first_name' 
+                          ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'N/A'
+                          : emp[key] || 'N/A'
+                        }
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        );
+
       case 'metrics_grid':
         if (Array.isArray(componentData) && componentData.length > 0) {
           const activeCount = componentData.filter(emp => emp.employee_status === 'Active').length;
@@ -248,16 +348,24 @@ const DynamicUIComponent = ({ layoutData, data }) => {
     <div className="w-full space-y-6 p-4">
       {components.map((component, index) => {
         const componentData = getComponentData(component.dataField);
+        console.log(`Component ${index}:`, component);
+        console.log(`Component data for ${component.dataField}:`, componentData);
         
         return (
           <div key={index} className="space-y-4">
             {/* Show title outside the card/table for all non-header components */}
-            {component.type !== 'header' && (
+            {component.type !== 'header' && component.type !== 'llm_generated' && (
               <h3 className="font-bold text-gray-900 dark:text-white text-lg">
                 {component.title}
               </h3>
             )}
-            <div className={getComponentStyle(component)}>
+            {/* Show LLM-generated title */}
+            {component.type === 'llm_generated' && (
+              <h3 className="font-bold text-gray-900 dark:text-white text-lg">
+                {component.title}
+              </h3>
+            )}
+            <div className={component.type === 'llm_generated' ? 'bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4' : getComponentStyle(component)}>
               {renderComponent(component, componentData)}
             </div>
           </div>
