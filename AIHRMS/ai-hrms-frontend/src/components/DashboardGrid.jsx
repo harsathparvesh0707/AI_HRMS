@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -20,7 +20,7 @@ import PinnedIconCard from './PinnedIconCard';
 import DynamicUIComponent from './DynamicUIComponent';
 import useStore from '../store/useStore';
 import useThemeColors from '../hooks/useThemeColors';
-import { ChevronDown, ChevronUp, Plus,X } from 'lucide-react';  
+import { ChevronDown, ChevronUp, Plus, X, Upload } from 'lucide-react';  
 
 const DashboardGrid = () => {
   const { 
@@ -33,9 +33,113 @@ const DashboardGrid = () => {
     hideDynamicUI,
     userQuery
   } = useStore();
+
   const colors = useThemeColors();
   const [pinnedExpanded, setPinnedExpanded] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (file && file.type === 'text/csv') {
+      try {
+        // Show loading screen
+        useStore.setState({ 
+          isGenerating: true, 
+          showDynamicUI: true,
+          userQuery: `Uploaded CSV: ${file.name}`
+        });
+
+        // Parse CSV file
+        const csvData = await parseCsvFile(file);
+        
+        // Create table layout
+        const layout = createTableLayout(csvData, file.name);
+        const data = formatCsvData(csvData);
+        
+        // Display in UI
+        useStore.setState({ 
+          dynamicLayout: layout,
+          dynamicData: data,
+          isGenerating: false
+        });
+      } catch (error) {
+        console.error('CSV processing error:', error);
+        useStore.setState({ 
+          isGenerating: false
+        });
+      }
+    } else {
+      alert('Please select a CSV file');
+    }
+    event.target.value = ''; // Reset file input
+  };
+
+  const parseCsvFile = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const csv = e.target.result;
+          const lines = csv.split('\n').filter(line => line.trim());
+          const headers = lines[0].split(',').map(h => h.trim());
+          const rows = lines.slice(1).map(line => {
+            const values = line.split(',').map(v => v.trim());
+            const row = {};
+            headers.forEach((header, index) => {
+              row[header] = values[index] || '';
+            });
+            return row;
+          });
+          resolve({ headers, rows });
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  };
+
+  const createTableLayout = (csvData, fileName) => {
+    const dataMapping = {};
+    csvData.headers.forEach(header => {
+      dataMapping[header] = header.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    });
+
+    return {
+      layout: {
+        type: 'responsive_grid',
+        columns: 2,
+        gap: '20px',
+        components: [
+          {
+            type: 'header',
+            title: `Uploaded Data: ${fileName}`,
+            // subtitle: `${csvData.rows.length} records found`,
+            style: { gridColumn: 'span 2' }
+          },
+          {
+            type: 'data_table',
+            title: '',
+            dataField: 'database_results.select_employees_0.data',
+            style: { gridColumn: 'span 2' }
+          }
+        ]
+      },
+      dataMapping
+    };
+  };
+
+  const formatCsvData = (csvData) => {
+    return {
+      database_results: {
+        select_employees_0: {
+          data: csvData.rows
+        }
+      }
+    };
+  };
 
   const pinnedCards = cards.filter((card) => card.pinned);
   const unpinnedCards = cards.filter((card) => !card.pinned);
@@ -145,12 +249,27 @@ const DashboardGrid = () => {
                 Dashboard
               </h2>
             </div>
-            <button 
-              onClick={() => setIsCreateModalOpen(true)}
-              className={`p-1.5 bg-gradient-to-r ${colors.gradient} text-white rounded-lg shadow-md hover:shadow-lg transition-shadow`}
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className={`p-1.5 bg-gradient-to-r ${colors.gradient} text-white rounded-lg shadow-md hover:shadow-lg transition-shadow`}
+              >
+                <Upload className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => setIsCreateModalOpen(true)}
+                className={`p-1.5 bg-gradient-to-r ${colors.gradient} text-white rounded-lg shadow-md hover:shadow-lg transition-shadow`}
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <SortableContext
             items={unpinnedCards.map((c) => c.id)}

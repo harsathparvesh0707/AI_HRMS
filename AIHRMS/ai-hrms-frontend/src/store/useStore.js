@@ -290,6 +290,11 @@ const useStore = create(
         cards: state.cards,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        // Dynamic UI state for CSV uploads
+        dynamicLayout: state.dynamicLayout,
+        dynamicData: state.dynamicData,
+        showDynamicUI: state.showDynamicUI,
+        userQuery: state.userQuery,
         // messages: state.messages, // Added to persist chat history
       }),
       migrate: (persistedState, version) => {
