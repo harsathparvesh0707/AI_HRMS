@@ -1,12 +1,27 @@
-import { Moon, Sun, Bell, LogOut, BarChart3 } from 'lucide-react';
+import { Moon, Sun, Bell, LogOut, BarChart3, Search } from 'lucide-react';
+import { useState } from 'react';
 import useStore from '../store/useStore';
 import { motion } from 'framer-motion';
 import ThemeSelector from './ThemeSelector';
 import useThemeColors from '../hooks/useThemeColors';
 
 const Header = () => {
-  const { theme, toggleTheme, user, logout } = useStore();
+  const { theme, toggleTheme, user, logout, generateDynamicUI, isGenerating } = useStore();
   const colors = useThemeColors();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    
+    try {
+      await generateDynamicUI(searchQuery);
+      setSearchQuery('');
+    } catch (error) {
+      console.error('Search error:', error);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
@@ -26,8 +41,36 @@ const Header = () => {
           </div>
         </div>
 
+        {/* Global Search */}
+        <div className="flex-1 max-w-md mx-8">
+          <form onSubmit={handleSearch} className="relative">
+            <div className={`relative transition-all duration-200 ${
+              isSearchFocused ? 'transform scale-105' : ''
+            }`}>
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
+                placeholder="Search employees, departments, or ask AI..."
+                disabled={isGenerating}
+                className={`w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm placeholder-slate-400 transition-all ${
+                  isGenerating ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              />
+              {isGenerating && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                </div>
+              )}
+            </div>
+          </form>
+        </div>
+
         {/* Right Section */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}

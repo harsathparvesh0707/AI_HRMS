@@ -64,7 +64,6 @@ const PaginatedTable = ({ data, getFieldLabel }) => {
         </table>
       </div>
       
-      {/* Advanced Pagination Controls */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm">
         <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
           <span>Showing {startIndex + 1} to {Math.min(endIndex, data.length)} of {data.length} results</span>
@@ -134,8 +133,11 @@ const DynamicUIComponent = ({ layoutData, data }) => {
   }
 
   // Extract employee data
-  const employees = data.database_results?.select_employees_0?.data || [];
-  
+  let employees = data.database_results?.select_employees_0?.data || [];
+  if (employees.rows && Array.isArray(employees.rows)) {
+    employees = employees.rows;
+  }
+
   const layout = layoutData.layout || layoutData;
   const components = layout.components || [];
   const dataMapping = layoutData.dataMapping || {};
@@ -151,15 +153,6 @@ const DynamicUIComponent = ({ layoutData, data }) => {
       </div>
     );
   }
-
-  const getGridColsClass = (columns) => {
-    return 'grid-cols-1'; // Always use single column for full control
-  };
-
-  const getSpanClass = (span) => {
-    // For single column layout, all components span full width
-    return 'col-span-1';
-  };
 
   const getFieldLabel = (fieldKey) => {
     return dataMapping[fieldKey] || fieldKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -185,78 +178,6 @@ const DynamicUIComponent = ({ layoutData, data }) => {
   };
 
   const renderComponent = (component, componentData) => {
-    // Handle LLM-generated components with actual data mapping
-    if (component.type === 'llm_generated') {
-      // Get actual employee data
-      const actualEmployees = employees || [];
-      console.log('LLM component - actual employees:', actualEmployees);
-      console.log('Component details:', component);
-      
-      if (component.componentType === 'table' && actualEmployees.length > 0) {
-        const fields = Object.keys(actualEmployees[0]).filter(field => field !== 'last_name');
-        
-        return (
-          <div className="w-full overflow-x-auto">
-            <table className="w-full min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  {fields.map(field => (
-                    <th key={field} className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      {field === 'first_name' ? 'name' : getFieldLabel(field)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {actualEmployees.map((emp, index) => (
-                  <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    {fields.map(field => (
-                      <td key={field} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {field === 'first_name' 
-                          ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'N/A'
-                          : emp[field] || 'N/A'
-                        }
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-      }
-      
-      if (component.componentType === 'card' && actualEmployees.length > 0) {
-        const emp = actualEmployees[0];
-        const empFields = Object.keys(emp).filter(field => field !== 'last_name');
-        
-        return (
-          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
-            {empFields.map((key) => (
-              <div key={key} className="flex justify-between items-center">
-                <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">
-                  {key === 'first_name' ? 'name' : getFieldLabel(key)}:
-                </span>
-                <span className="text-gray-900 dark:text-white font-semibold text-sm">
-                  {key === 'first_name' 
-                    ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'N/A'
-                    : emp[key] || 'N/A'
-                  }
-                </span>
-              </div>
-            ))}
-          </div>
-        );
-      }
-      
-      return <div className="text-gray-500">No employee data available</div>;
-    }
-    
-    // Auto-decide format: card for single employee, table for multiple
-    const isMultipleEmployees = Array.isArray(componentData) && componentData.length > 1;
-    const isSingleEmployee = (Array.isArray(componentData) && componentData.length === 1) || 
-                            (!Array.isArray(componentData) && componentData && typeof componentData === 'object');
-    
     switch (component.type) {
       case 'header':
         return (
@@ -280,7 +201,6 @@ const DynamicUIComponent = ({ layoutData, data }) => {
         );
 
       case 'profile_card':
-        // Card format only for single employee details
         const singleEmp = Array.isArray(componentData) ? componentData[0] : componentData;
         if (!singleEmp || typeof singleEmp !== 'object') {
           return <div className="text-gray-500">No employee data available</div>;
@@ -311,77 +231,12 @@ const DynamicUIComponent = ({ layoutData, data }) => {
           return <div className="text-gray-500">No employee data available</div>;
         }
 
-        // Check if this is active or freepool employees query - show cards for these
-        const isActiveEmployees = component.title?.toLowerCase().includes('active') || 
-                                 componentData.every(emp => emp.employee_status === 'Active');
-        const isFreepoolEmployees = component.title?.toLowerCase().includes('freepool') || 
-                                   component.title?.toLowerCase().includes('free pool');
-        
-        if (isActiveEmployees || isFreepoolEmployees) {
-          // Always use 2-column grid for active/freepool employees
-          return (
-            <div className="grid grid-cols-2 gap-6">
-              {componentData.map((emp, index) => {
-                const empFields = Object.keys(emp).filter(field => field !== 'last_name');
-                return (
-                  <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
-                    {empFields.map((key) => (
-                      <div key={key} className="flex justify-between items-center">
-                        <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">
-                          {key === 'first_name' ? 'name' : getFieldLabel(key)}:
-                        </span>
-                        <span className="text-gray-900 dark:text-white font-semibold text-sm">
-                          {key === 'first_name' 
-                            ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'N/A'
-                            : emp[key] || 'N/A'
-                          }
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        }
-
-        // Table format with pagination
         return <PaginatedTable data={componentData} getFieldLabel={getFieldLabel} />;
-
-      case 'card_grid':
-        if (!Array.isArray(componentData) || componentData.length === 0) {
-          return <div className="text-gray-500">No employee data available</div>;
-        }
-
-        // Always use 2-column grid for card display
-        return (
-          <div className="grid grid-cols-2 gap-6">
-            {componentData.map((emp, index) => {
-              const empFields = Object.keys(emp).filter(field => field !== 'last_name');
-              return (
-                <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
-                  {empFields.map((key) => (
-                    <div key={key} className="flex justify-between items-center">
-                      <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">
-                        {key === 'first_name' ? 'name' : getFieldLabel(key)}:
-                      </span>
-                      <span className="text-gray-900 dark:text-white font-semibold text-sm">
-                        {key === 'first_name' 
-                          ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'N/A'
-                          : emp[key] || 'N/A'
-                        }
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        );
 
       case 'metrics_grid':
         if (Array.isArray(componentData) && componentData.length > 0) {
           const activeCount = componentData.filter(emp => emp.employee_status === 'Active').length;
+          const freepoolCount = componentData.filter(emp => emp.employee_status === 'Freepool').length;
           
           return (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -397,11 +252,11 @@ const DynamicUIComponent = ({ layoutData, data }) => {
                 </div>
                 <div className="text-sm text-green-700 dark:text-green-300 mt-2">Active</div>
               </div>
-              <div className="bg-orange-50 dark:bg-orange-900/20 p-6 rounded-lg text-center">
-                <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                  {componentData.length - activeCount}
+              <div className="bg-purple-50 dark:bg-purple-900/20 p-6 rounded-lg text-center">
+                <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                  {freepoolCount}
                 </div>
-                <div className="text-sm text-orange-700 dark:text-orange-300 mt-2">Inactive</div>
+                <div className="text-sm text-purple-700 dark:text-purple-300 mt-2">Freepool</div>
               </div>
             </div>
           );
@@ -420,17 +275,14 @@ const DynamicUIComponent = ({ layoutData, data }) => {
   const getComponentStyle = (component) => {
     const baseStyle = "bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700";
     
-    // For data tables, add extra padding and ensure full width
     if (component.type === 'data_table') {
       return `${baseStyle} col-span-1 overflow-hidden`;
     }
     
-    // For headers, no card styling
     if (component.type === 'header') {
       return "col-span-1";
     }
     
-    // For other components
     return `${baseStyle} col-span-1 p-6`;
   };
 
@@ -443,19 +295,12 @@ const DynamicUIComponent = ({ layoutData, data }) => {
         
         return (
           <div key={index} className="space-y-4">
-            {/* Show title outside the card/table for all non-header components */}
-            {component.type !== 'header' && component.type !== 'llm_generated' && (
+            {component.type !== 'header' && (
               <h3 className="font-bold text-gray-900 dark:text-white text-lg">
                 {component.title}
               </h3>
             )}
-            {/* Show LLM-generated title */}
-            {component.type === 'llm_generated' && (
-              <h3 className="font-bold text-gray-900 dark:text-white text-lg">
-                {component.title}
-              </h3>
-            )}
-            <div className={component.type === 'llm_generated' ? 'bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4' : getComponentStyle(component)}>
+            <div className={getComponentStyle(component)}>
               {renderComponent(component, componentData)}
             </div>
           </div>

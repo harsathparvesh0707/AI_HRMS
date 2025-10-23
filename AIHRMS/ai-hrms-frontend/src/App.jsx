@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import Login from './components/Login';
 import Header from './components/Header';
 import DashboardGrid from './components/DashboardGrid';
-import ChatPanel from './components/ChatPanel';
+// import ChatPanel from './components/ChatPanel'; // Replaced with global search in header
 import useStore from './store/useStore';
 
 function App() {
@@ -34,7 +34,7 @@ function App() {
         <div className="flex-1 overflow-y-auto">
           <DashboardGrid />
         </div>
-        <ChatPanel />
+        {/* <ChatPanel /> */} {/* Replaced with global search in header */}
       </div>
     </div>
   );

@@ -1,3 +1,31 @@
+/*
+ * ChatPanel Component - REPLACED WITH GLOBAL SEARCH IN HEADER
+ * 
+ * Previous Functionality:
+ * - Floating chat button with AI assistant interface
+ * - Real-time messaging with LLM integration
+ * - Quick action buttons for common HR queries
+ * - Dynamic UI generation based on user queries
+ * - Message history and typing indicators
+ * - Voice input capability (Mic button)
+ * - Expandable/collapsible chat interface
+ * 
+ * Key Features Moved to Header Search:
+ * - generateDynamicUI() function calls
+ * - Query processing and LLM integration
+ * - Real-time search with loading states
+ * - Direct UI generation without chat interface
+ * 
+ * Quick Actions Previously Available:
+ * - "Show my leave balance" (Calendar icon)
+ * - "Show team performance" (TrendingUp icon) 
+ * - "Generate monthly report" (FileText icon)
+ * 
+ * This component is now commented out and replaced with a global search
+ * bar in the Header component that provides the same LLM functionality
+ * without the conversational interface.
+ */
+
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -25,6 +53,7 @@ const QuickAction = ({ icon: Icon, label, onClick, colors }) => (
   </motion.button>
 );
 
+// COMPONENT COMMENTED OUT - FUNCTIONALITY MOVED TO HEADER SEARCH
 const ChatPanel = () => {
   const {
     messages,
@@ -325,4 +354,5 @@ const ChatPanel = () => {
   );
 };
 
+// export default ChatPanel; // COMMENTED OUT - REPLACED WITH GLOBAL SEARCH
 export default ChatPanel;
