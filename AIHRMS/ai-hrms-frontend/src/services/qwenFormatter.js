@@ -62,36 +62,216 @@ class QwenFormatter {
 
   async generateLayoutWithLLM(actualData, query) {
     const employees = actualData.database_results?.select_employees_0?.data || [];
-    const lowerQuery = query.toLowerCase();
     
-    // Simple rule-based layout generation
-    if (lowerQuery.includes('all') && employees.length > 10) {
-      return {
-        layout: {
-          type: "responsive_grid",
-          columns: 2,
-          components: [
-            { type: "metrics_grid", title: "Employee Overview", dataField: "database_results.select_employees_0.data", style: { gridColumn: "span 2" } },
-            { type: "data_table", title: "All Employees", dataField: "database_results.select_employees_0.data", style: { gridColumn: "span 2" } }
-          ]
-        },
-        dataMapping: this.getStandardMapping()
-      };
+    const prompt = `You are an expert UI/UX designer for HR systems. Design the complete user interface for this query.
+
+QUERY: "${query}"
+DATA: ${employees.length} employees
+SAMPLE: ${JSON.stringify(employees.slice(0, 1), null, 2)}
+
+AVAILABLE COMPONENTS:
+Data Display: Card, Table, Avatar, Badge, Progress, Chart, Tabs, Accordion
+Interaction: Button, Input, Select, Form, Dialog, Sheet, Drawer
+Navigation: Breadcrumb, Pagination, Menubar, Sidebar
+Feedback: Alert, Toast, Tooltip, Skeleton
+Layout: Separator, ScrollArea, AspectRatio, Resizable
+
+DESIGN COMPLETE UI LAYOUT:
+1. Analyze user intent and data context
+2. Choose optimal component hierarchy
+3. Design responsive layout structure
+4. Define component properties and styling
+5. Create intuitive user flow
+
+RESPOND WITH COMPLETE JSON:
+{
+  "analysis": {
+    "intent": "user goal",
+    "dataType": "single/multiple/analytics",
+    "priority": "what user needs most"
+  },
+  "layout": {
+    "type": "grid/dashboard/list/form",
+    "columns": 1-4,
+    "spacing": "tight/normal/loose",
+    "responsive": true/false
+  },
+  "components": [
+    {
+      "type": "ui_component_name",
+      "title": "display title",
+      "dataField": "data path",
+      "props": {"variant": "style", "size": "md"},
+      "position": {"row": 1, "col": 1, "span": 2},
+      "priority": "primary/secondary/tertiary"
+    }
+  ],
+  "interactions": [
+    {
+      "trigger": "click/hover/input",
+      "action": "navigate/filter/sort/edit",
+      "target": "component_id"
+    }
+  ],
+  "styling": {
+    "theme": "professional/modern/minimal",
+    "colors": ["primary", "secondary"],
+    "emphasis": "data/actions/status"
+  },
+  "reasoning": "detailed explanation of design decisions"
+}`;
+
+    try {
+      const response = await fetch(this.modelEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "qwen2-500m-instruct",
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 500,
+          temperature: 0.4
+        })
+      });
+      
+      const result = await response.json();
+      const llmResponse = result.choices[0].message.content;
+      
+      console.log('Complete LLM UI Design:', llmResponse);
+      
+      return this.buildCompleteUIFromLLM(llmResponse, employees, query);
+    } catch (error) {
+      console.log('LLM failed, using minimal fallback');
+      return this.buildMinimalFallback(employees, query);
+    }
+  }
+
+  buildCompleteUIFromLLM(llmResponse, employees, query) {
+    let uiDesign;
+    
+    try {
+      uiDesign = JSON.parse(llmResponse);
+    } catch (error) {
+      console.log('Parsing LLM text response');
+      uiDesign = this.extractUIFromText(llmResponse);
     }
     
-    const componentType = employees.length === 1 ? 'profile_card' : 'data_table';
-    const title = employees.length === 1 ? "Employee Details" : this.getTitleFromQuery(query);
+    console.log('Complete UI Design:', uiDesign);
+    
+    return this.implementLLMDesign(uiDesign, employees, query);
+  }
+  
+  extractUIFromText(text) {
+    const lowerText = text.toLowerCase();
+    
+    // Extract components mentioned in text
+    const components = [];
+    const componentTypes = ['card', 'table', 'chart', 'badge', 'progress', 'avatar', 'alert', 'tabs', 'form', 'button'];
+    
+    componentTypes.forEach((type, index) => {
+      if (lowerText.includes(type)) {
+        components.push({
+          type: `ui_${type}`,
+          title: this.getTitleFromQuery(text),
+          dataField: type === 'card' ? "database_results.select_employees_0.data[0]" : "database_results.select_employees_0.data",
+          props: { variant: 'default' },
+          position: { row: Math.floor(index / 2) + 1, col: (index % 2) + 1, span: type === 'table' ? 2 : 1 },
+          priority: index === 0 ? 'primary' : 'secondary'
+        });
+      }
+    });
+    
+    return {
+      analysis: { intent: 'display', dataType: 'multiple', priority: 'data' },
+      layout: { type: 'grid', columns: 2, spacing: 'normal', responsive: true },
+      components: components.length > 0 ? components : [{
+        type: 'ui_table',
+        title: this.getTitleFromQuery(text),
+        dataField: "database_results.select_employees_0.data",
+        props: { variant: 'default' },
+        position: { row: 1, col: 1, span: 2 },
+        priority: 'primary'
+      }],
+      interactions: [],
+      styling: { theme: 'professional', colors: ['primary'], emphasis: 'data' },
+      reasoning: 'Extracted from text response'
+    };
+  }
+  
+  implementLLMDesign(design, employees, query) {
+    const components = design.components?.map(comp => ({
+      type: comp.type,
+      title: comp.title,
+      dataField: comp.dataField,
+      uiComponent: this.mapToUIComponent(comp.type),
+      props: comp.props || {},
+      style: this.convertPositionToStyle(comp.position, design.layout),
+      priority: comp.priority,
+      llmGenerated: true
+    })) || [];
+    
+    // Add interactions as metadata
+    const interactions = design.interactions || [];
     
     return {
       layout: {
-        type: "responsive_grid",
+        type: design.layout?.type || 'responsive_grid',
+        columns: design.layout?.columns || 2,
+        spacing: design.layout?.spacing || 'normal',
+        responsive: design.layout?.responsive !== false,
+        components,
+        interactions,
+        styling: design.styling,
+        llmAnalysis: design.analysis,
+        llmReasoning: design.reasoning
+      },
+      dataMapping: this.getStandardMapping()
+    };
+  }
+  
+  mapToUIComponent(type) {
+    const mapping = {
+      'ui_card': 'Card',
+      'ui_table': 'Table', 
+      'ui_chart': 'Chart',
+      'ui_badge': 'Badge',
+      'ui_progress': 'Progress',
+      'ui_avatar': 'Avatar',
+      'ui_alert': 'Alert',
+      'ui_tabs': 'Tabs',
+      'ui_form': 'Form',
+      'ui_button': 'Button',
+      'ui_input': 'Input',
+      'ui_skeleton': 'Skeleton'
+    };
+    return mapping[type] || 'Table';
+  }
+  
+  convertPositionToStyle(position, layout) {
+    if (!position) return { gridColumn: 'span 2' };
+    
+    const { row, col, span } = position;
+    return {
+      gridRow: row || 1,
+      gridColumn: span ? `span ${span}` : col || 1,
+      order: (row - 1) * (layout?.columns || 2) + (col - 1)
+    };
+  }
+  
+  buildMinimalFallback(employees, query) {
+    return {
+      layout: {
+        type: 'responsive_grid',
         columns: 2,
         components: [{
-          type: componentType,
-          title: title,
-          dataField: employees.length === 1 ? "database_results.select_employees_0.data[0]" : "database_results.select_employees_0.data",
-          style: { gridColumn: "span 2" }
-        }]
+          type: 'ui_table',
+          title: this.getTitleFromQuery(query),
+          dataField: 'database_results.select_employees_0.data',
+          uiComponent: 'Table',
+          style: { gridColumn: 'span 2' },
+          priority: 'primary',
+          llmGenerated: false
+        }],
+        llmReasoning: 'Fallback: LLM unavailable'
       },
       dataMapping: this.getStandardMapping()
     };
@@ -102,8 +282,13 @@ class QwenFormatter {
     if (lowerQuery.includes('active')) return 'Active Employees';
     if (lowerQuery.includes('freepool')) return 'Freepool Employees';
     if (lowerQuery.includes('all')) return 'All Employees';
-    return 'Employee List';
+    if (lowerQuery.includes('profile')) return 'Employee Profile';
+    if (lowerQuery.includes('analytics')) return 'Employee Analytics';
+    if (lowerQuery.includes('report')) return 'Employee Report';
+    return 'Employee Search Results';
   }
+
+
 
   getStandardMapping() {
     return {

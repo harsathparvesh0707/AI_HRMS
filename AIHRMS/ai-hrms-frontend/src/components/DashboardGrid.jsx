@@ -43,66 +43,77 @@ const DashboardGrid = () => {
     const file = event.target.files[0];
     if (file && file.type === 'text/csv') {
       try {
-        useStore.setState({ 
-          isGenerating: true, 
-          showDynamicUI: true,
-          userQuery: `Uploaded CSV: ${file.name}`
-        });
-
         const formData = new FormData();
         formData.append('file', file);
-
+        
         const response = await fetch('http://172.25.247.12:8000/upload/hrms-data', {
           method: 'POST',
-          body: formData
+          body: formData,
         });
-
+        
         if (!response.ok) {
-          throw new Error(`Upload failed: ${response.statusText}`);
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-
-        const responseData = await response.json();
-        console.log('API Response:', responseData);
         
-        const layout = createTableLayoutFromAPI(responseData, file.name);
-        const data = formatAPIData(responseData);
-        
-        useStore.setState({ 
-          dynamicLayout: layout,
-          dynamicData: data,
-          isGenerating: false
-        });
+        const result = await response.json();
+        alert('CSV file uploaded successfully!');
       } catch (error) {
-        console.error('Upload error:', error);
-        alert(`Upload failed: ${error.message}`);
-        useStore.setState({ 
-          isGenerating: false
-        });
+        console.error('Error uploading CSV:', error);
+        alert('Error uploading CSV file: ' + error.message);
       }
     } else {
       alert('Please select a CSV file');
     }
-    event.target.value = '';
+    event.target.value = ''; // Reset file input
   };
 
-  const createTableLayoutFromAPI = (apiResponse, fileName) => {
-    const data = apiResponse.data || [];
+  const parseCsvFile = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const csv = e.target.result;
+          const lines = csv.split('\n').filter(line => line.trim());
+          const headers = lines[0].split(',').map(h => h.trim());
+          const rows = lines.slice(1).map(line => {
+            const values = line.split(',').map(v => v.trim());
+            const row = {};
+            headers.forEach((header, index) => {
+              row[header] = values[index] || '';
+            });
+            return row;
+          });
+          resolve({ headers, rows });
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  };
+
+  const createTableLayout = (csvData, fileName) => {
     const dataMapping = {};
-    
-    if (data.length > 0) {
-      Object.keys(data[0]).forEach(key => {
-        dataMapping[key] = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      });
-    }
+    csvData.headers.forEach(header => {
+      dataMapping[header] = header.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    });
 
     return {
       layout: {
         type: 'responsive_grid',
         columns: 2,
+        gap: '20px',
         components: [
           {
+            type: 'header',
+            title: `Uploaded Data: ${fileName}`,
+            // subtitle: `${csvData.rows.length} records found`,
+            style: { gridColumn: 'span 2' }
+          },
+          {
             type: 'data_table',
-            title: `${fileName} - ${data.length} records`,
+            title: '',
             dataField: 'database_results.select_employees_0.data',
             style: { gridColumn: 'span 2' }
           }
@@ -112,11 +123,11 @@ const DashboardGrid = () => {
     };
   };
 
-  const formatAPIData = (apiResponse) => {
+  const formatCsvData = (csvData) => {
     return {
       database_results: {
         select_employees_0: {
-          data: apiResponse.data || []
+          data: csvData.rows
         }
       }
     };

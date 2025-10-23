@@ -6,7 +6,7 @@ import ThemeSelector from './ThemeSelector';
 import useThemeColors from '../hooks/useThemeColors';
 
 const Header = () => {
-  const { theme, toggleTheme, user, logout, generateDynamicUI, isGenerating } = useStore();
+  const { theme, toggleTheme, user, logout, searchAndShowTable, isGenerating } = useStore();
   const colors = useThemeColors();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -16,7 +16,7 @@ const Header = () => {
     if (!searchQuery.trim()) return;
     
     try {
-      await generateDynamicUI(searchQuery);
+      await searchAndShowTable(searchQuery);
       setSearchQuery('');
     } catch (error) {
       console.error('Search error:', error);
