@@ -403,8 +403,6 @@ const useStore = create(
         theme: state.theme,
         colorTheme: state.colorTheme,
         cards: state.cards,
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
       }),
       migrate: (persistedState, version) => {
         // If version is less than 4, reset the state
