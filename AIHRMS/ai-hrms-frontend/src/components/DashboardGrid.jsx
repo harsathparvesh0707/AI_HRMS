@@ -40,9 +40,16 @@ const DashboardGrid = ({ onNavigate }) => {
   const fileInputRef = useRef(null);
 
   const handleFileUpload = async (event) => {
+    debugger
     const file = event.target.files[0];
     if (file && file.type === 'text/csv') {
       try {
+        useStore.setState({ 
+          isGenerating: true, 
+          showDynamicUI: true,
+          userQuery: `Uploaded CSV: ${file.name}`
+        });
+        
         const formData = new FormData();
         formData.append('file', file);
         
@@ -56,10 +63,36 @@ const DashboardGrid = ({ onNavigate }) => {
         }
         
         const result = await response.json();
-        alert('CSV file uploaded successfully!');
+
+        
+        
+        const layout = {
+          layout: {
+            type: 'responsive_grid',
+            columns: 1,
+            gap: '20px',
+            components: [
+              {
+                type: 'data_table',
+                title: '',
+                dataField: 'apiResponse',
+                style: { gridColumn: 'span 1' }
+              }
+            ]
+          }
+        };
+        
+        useStore.setState({ 
+          dynamicLayout: layout,
+          dynamicData: { apiResponse: result },
+          isGenerating: false
+        });
       } catch (error) {
         console.error('Error uploading CSV:', error);
         alert('Error uploading CSV file: ' + error.message);
+        useStore.setState({ 
+          isGenerating: false
+        });
       }
     } else {
       alert('Please select a CSV file');

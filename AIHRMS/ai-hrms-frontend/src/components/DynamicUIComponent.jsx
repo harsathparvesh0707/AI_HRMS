@@ -1,10 +1,22 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import useStore from '../store/useStore';
 
 const PaginatedTable = ({ data, getFieldLabel }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [jumpToPage, setJumpToPage] = useState('');
+  const [expandedSkills, setExpandedSkills] = useState(new Set());
+  
+  const toggleSkillExpansion = (rowIndex) => {
+    const newExpanded = new Set(expandedSkills);
+    if (newExpanded.has(rowIndex)) {
+      newExpanded.delete(rowIndex);
+    } else {
+      newExpanded.add(rowIndex);
+    }
+    setExpandedSkills(newExpanded);
+  };
   
   const totalPages = Math.ceil(data.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -25,8 +37,54 @@ const PaginatedTable = ({ data, getFieldLabel }) => {
     }
   };
   
-  const fields = Object.keys(data[0]);
-  const displayFields = fields.filter(field => field !== 'last_name');
+  // Flatten projects data to show all projects and customers
+  const flattenedData = data.map(item => {
+    const flattened = { ...item };
+    if (item.projects && Array.isArray(item.projects) && item.projects.length > 0) {
+      flattened.project_name = item.projects.map(p => p.project_name);
+      flattened.customer = item.projects.map(p => p.customer);
+      delete flattened.projects;
+    } else if (item.project && item.customer) {
+      // Handle direct project/customer fields from search results
+      flattened.project_name = item.project;
+      // customer field already exists, no need to map
+    }
+    return flattened;
+  });
+  console.log("zxcvb",flattenedData);
+  
+  const fields = Object.keys(flattenedData[0]);
+  const filteredFields = fields.filter(field => 
+    field !== 'last_name' && 
+    field !== 'is_free_pool' && 
+    field !== 'is_billable' &&
+    field !== 'type' &&
+    field !== 'score' &&
+    field !== 'source' &&
+    field !== 'parsed_experience'
+  );
+  
+  // Reorder columns: project_count after customer, skill_set at end
+  const otherFields = filteredFields.filter(field => 
+    field !== 'skill_set' && field !== 'project_count' && field !== 'customer'
+  );
+  
+  const displayFields = [];
+  
+  // Add all fields except customer, project_count, and skill_set
+  otherFields.forEach(field => {
+    displayFields.push(field);
+    if (field === 'project_name') {
+      // Add customer and project_count after project_name
+      if (filteredFields.includes('customer')) displayFields.push('customer');
+      if (filteredFields.includes('project_count')) displayFields.push('project_count');
+    }
+  });
+  
+  // Add skill_set at the end
+  if (filteredFields.includes('skill_set')) {
+    displayFields.push('skill_set');
+  }
   
   return (
     <div className="space-y-4">
@@ -37,7 +95,9 @@ const PaginatedTable = ({ data, getFieldLabel }) => {
               {displayFields.map(field => (
                 <th 
                   key={field} 
-                  className="px-6 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap bg-slate-50 dark:bg-slate-800/50"
+                  className={`px-6 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap bg-slate-50 dark:bg-slate-800/50 ${
+                    field === 'skill_set' ? 'w-80' : ''
+                  }`}
                 >
                   {field === 'first_name' ? 'name' : getFieldLabel(field)}
                 </th>
@@ -45,16 +105,40 @@ const PaginatedTable = ({ data, getFieldLabel }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {currentData.map((item, index) => (
+            {flattenedData.slice(startIndex, endIndex).map((item, index) => (
               <tr key={startIndex + index} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                 {displayFields.map(field => (
                   <td 
                     key={field} 
-                    className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white"
+                    className={`px-6 py-4 text-sm text-slate-900 dark:text-white ${
+                      field === 'skill_set' ? 'w-80' : 'whitespace-nowrap'
+                    }`}
                   >
                     {field === 'first_name' 
                       ? `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'N/A'
-                      : item[field] || 'N/A'
+                      : field === 'skill_set' && item[field]
+                        ? (
+                            <div className="max-w-80">
+                              <div className={expandedSkills.has(startIndex + index) ? '' : 'line-clamp-2'}>
+                                {item[field]}
+                              </div>
+                              {item[field] && typeof item[field] === 'string' && item[field].length > 50 && (
+                                <button
+                                  onClick={() => toggleSkillExpansion(startIndex + index)}
+                                  className="text-blue-600 hover:text-blue-800 text-xs mt-1"
+                                >
+                                  {expandedSkills.has(startIndex + index) ? 'Show Less' : 'Show More'}
+                                </button>
+                              )}
+                            </div>
+                          )
+                      : Array.isArray(item[field])
+                        ? item[field].map((value, idx) => (
+                            <div key={idx}>{value}</div>
+                          ))
+                        : typeof item[field] === 'object' && item[field] !== null
+                          ? JSON.stringify(item[field])
+                          : item[field] || 'N/A'
                     }
                   </td>
                 ))}
@@ -105,12 +189,14 @@ const PaginatedTable = ({ data, getFieldLabel }) => {
   );
 };
 
-const DynamicUIComponent = ({ layoutData, data }) => {
-  console.log('=== DYNAMIC UI DEBUG ===');
-  console.log('Full layoutData:', layoutData);
-  console.log('Full data:', data);
+const DynamicUIComponent = ({ layoutData }) => {
+  const { dynamicData } = useStore();
   
-  if (!layoutData || !data) {
+  // console.log('=== DYNAMIC UI DEBUG ===');
+  // console.log('Full layoutData:', layoutData);
+  // console.log('Full dynamicData:', dynamicData);
+  
+  if (!layoutData || !dynamicData) {
     return (
       <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
         <h3 className="text-red-800 font-bold">No data or layout available</h3>
@@ -120,19 +206,13 @@ const DynamicUIComponent = ({ layoutData, data }) => {
 
   // Extract employee data from various API response formats
   let employees = [];
-  console.log("asdasd:",data);
+  console.log("asdfgghjk",dynamicData);
   
   // Handle different API response structures
-  if (data?.results?.unified_results) {
-    employees = data?.results?.unified_results;
-  } else if (data.apiResponse && Array.isArray(data.apiResponse)) {
-    employees = data.apiResponse;
-  } else if (Array.isArray(data)) {
-    employees = data;
-  } else if (data.data && Array.isArray(data.data)) {
-    employees = data.data;
-  } else if (data.results && Array.isArray(data.results)) {
-    employees = data.results;
+  if (dynamicData?.results?.unified_results) {
+    employees = dynamicData.results.unified_results
+  } else if (dynamicData?.database_results?.select_employees_0?.data) {
+    employees = dynamicData.database_results.select_employees_0.data
   }
   
   // Handle nested rows structure
@@ -145,9 +225,9 @@ const DynamicUIComponent = ({ layoutData, data }) => {
   const components = layout.components || [];
   const dataMapping = layoutData.dataMapping || {};
   
-  console.log('Extracted employees:', employees);
-  console.log('Raw data structure:', data);
-  console.log('Layout components:', components);
+  // console.log('Extracted employees:', employees);
+  // console.log('Raw data structure:', dynamicData);
+  // console.log('Layout components:', components);
 
   if (employees.length === 0) {
     return (
@@ -157,14 +237,7 @@ const DynamicUIComponent = ({ layoutData, data }) => {
     );
   }
 
-  const getGridColsClass = (columns) => {
-    return 'grid-cols-1'; // Always use single column for full control
-  };
 
-  const getSpanClass = (span) => {
-    // For single column layout, all components span full width
-    return 'col-span-1';
-  };
 
   const getFieldLabel = (fieldKey) => {
     return dataMapping[fieldKey] || fieldKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -201,8 +274,8 @@ const DynamicUIComponent = ({ layoutData, data }) => {
     if (component.type === 'llm_generated') {
       // Get actual employee data
       const actualEmployees = employees || [];
-      console.log('LLM component - actual employees:', actualEmployees);
-      console.log('Component details:', component);
+      // console.log('LLM component - actual employees:', actualEmployees);
+      // console.log('Component details:', component);
       
       if (component.componentType === 'table' && actualEmployees.length > 0) {
         const fields = Object.keys(actualEmployees[0]).filter(field => field !== 'last_name');
@@ -412,8 +485,8 @@ const DynamicUIComponent = ({ layoutData, data }) => {
     <div className="w-full space-y-6 p-4">
       {components.map((component, index) => {
         const componentData = getComponentData(component.dataField);
-        console.log(`Component ${index}:`, component);
-        console.log(`Component data for ${component.dataField}:`, componentData);
+        // console.log(`Component ${index}:`, component);
+        // console.log(`Component data for ${component.dataField}:`, componentData);
         
         // Skip rendering header components
         if (component.type === 'header') {

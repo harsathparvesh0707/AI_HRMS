@@ -53,15 +53,13 @@ function App() {
       if (!response.ok) {
         throw new Error(`Upload failed: ${response.statusText}`);
       }
-
       const responseData = await response.json();
+      console.log("qerewqwertyu",responseData);
       
       let tableData = [];
-      if (responseData.data && Array.isArray(responseData.data)) {
-        tableData = responseData.data;
-      } else if (Array.isArray(responseData)) {
-        tableData = responseData;
-      }
+      if (responseData.all_employees && Array.isArray(responseData.all_employees)) {
+        tableData = responseData.all_employees;
+      } 
       
       const layout = {
         layout: {
@@ -80,6 +78,8 @@ function App() {
           }
         }
       };
+
+      
       
       useStore.setState({ 
         dynamicLayout: layout,

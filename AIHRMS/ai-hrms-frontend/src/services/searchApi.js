@@ -1,6 +1,6 @@
 const searchApi = {
   async search(query) {
-    console.log('SearchAPI: Sending query:', query);
+    // console.log('SearchAPI: Sending query:', query);
     
     const response = await fetch('http://172.25.247.12:8000/search', {
       method: 'POST',
@@ -15,7 +15,7 @@ const searchApi = {
     }
     
     const data = await response.json();
-    console.log('SearchAPI: Received response:', data);
+    // console.log('SearchAPI: Received response:', data);
     return data;
   }
 };

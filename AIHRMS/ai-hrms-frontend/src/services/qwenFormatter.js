@@ -9,11 +9,11 @@ class QwenFormatter {
 
   async searchAndGenerateLayout(query) {
     try {
-      console.log("Starting LLM-powered search:", query);
+      // console.log("Starting LLM-powered search:", query);
 
       // Step 1: Execute search
       const rawSearchData = await searchApi.search(query);
-      console.log("Search API Response:", rawSearchData);
+      // console.log("Search API Response:", rawSearchData);
 
       // Step 2: Normalize data
       const normalizedData = this.normalizeSearchData(rawSearchData);
@@ -21,7 +21,7 @@ class QwenFormatter {
       // Step 3: LLM decides component layout
       const layout = await this.generateLayoutWithLLM(normalizedData, query);
       
-      console.log("LLM layout complete");
+      // console.log("LLM layout complete");
       return { data: normalizedData, layout };
     } catch (error) {
       console.error("Error in search pipeline:", error);
@@ -30,7 +30,7 @@ class QwenFormatter {
   }
 
   normalizeSearchData(rawData) {
-    console.log("Normalizing search data - RAW:", rawData);
+    // console.log("Normalizing search data - RAW:", rawData);
 
     if (rawData?.database_results?.select_employees_0) {
       return rawData;
@@ -49,7 +49,7 @@ class QwenFormatter {
       employeeData = [];
     }
 
-    console.log("Normalized employee data:", employeeData);
+    // console.log("Normalized employee data:", employeeData);
 
     return {
       database_results: {
@@ -136,11 +136,11 @@ RESPOND WITH COMPLETE JSON:
       const result = await response.json();
       const llmResponse = result.choices[0].message.content;
       
-      console.log('Complete LLM UI Design:', llmResponse);
+      // console.log('Complete LLM UI Design:', llmResponse);
       
       return this.buildCompleteUIFromLLM(llmResponse, employees, query);
     } catch (error) {
-      console.log('LLM failed, using minimal fallback');
+      // console.log('LLM failed, using minimal fallback');
       return this.buildMinimalFallback(employees, query);
     }
   }
@@ -151,11 +151,11 @@ RESPOND WITH COMPLETE JSON:
     try {
       uiDesign = JSON.parse(llmResponse);
     } catch (error) {
-      console.log('Parsing LLM text response');
+      // console.log('Parsing LLM text response');
       uiDesign = this.extractUIFromText(llmResponse);
     }
     
-    console.log('Complete UI Design:', uiDesign);
+    // console.log('Complete UI Design:', uiDesign);
     
     return this.implementLLMDesign(uiDesign, employees, query);
   }

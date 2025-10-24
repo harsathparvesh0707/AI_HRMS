@@ -42,7 +42,6 @@ const Header = ({ onNavigate, currentPage }) => {
         setRecentSearches(prev => [searchTerm, ...prev.slice(0, 4)]);
       }
       
-      setSearchQuery('');
       setShowSuggestions(false);
       setIsSearchFocused(false);
     } catch (error) {
@@ -200,7 +199,7 @@ const Header = ({ onNavigate, currentPage }) => {
                   exit={{ opacity: 0, scale: 0.8 }}
                   type="button"
                   onClick={handleClearSearch}
-                  className="absolute right-10 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center"
                 >
                   <X className="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" />
                 </motion.button>
@@ -241,7 +240,10 @@ const Header = ({ onNavigate, currentPage }) => {
                       {recentSearches.map((search, index) => (
                         <button
                           key={index}
-                          onClick={(e) => handleSearch(e, search)}
+                          onClick={(e) => {
+                            setSearchQuery(search);
+                            handleSearch(e, search);
+                          }}
                           className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-2"
                         >
                           <Search className="w-3 h-3 text-slate-400" />
@@ -263,7 +265,10 @@ const Header = ({ onNavigate, currentPage }) => {
                       return (
                         <button
                           key={index}
-                          onClick={(e) => handleSearch(e, suggestion.text)}
+                          onClick={(e) => {
+                            setSearchQuery(suggestion.text);
+                            handleSearch(e, suggestion.text);
+                          }}
                           className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-3 group"
                         >
                           <IconComponent className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
