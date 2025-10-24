@@ -398,7 +398,7 @@ const useStore = create(
     }),
     {
       name: 'hrms-storage',
-      version: 5, // Increment this to reset localStorage
+      version: 6, // Increment this to reset localStorage
       partialize: (state) => ({
         theme: state.theme,
         colorTheme: state.colorTheme,
@@ -411,8 +411,8 @@ const useStore = create(
         userQuery: state.userQuery,
       }),
       migrate: (persistedState, version) => {
-        // If version is less than 5, reset the state
-        if (version < 5) {
+        // If version is less than 6, reset the state
+        if (version < 6) {
           return undefined; // This will cause the store to use initial state
         }
         return persistedState;

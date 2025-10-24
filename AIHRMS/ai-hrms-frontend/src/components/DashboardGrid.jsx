@@ -22,7 +22,7 @@ import useStore from '../store/useStore';
 import useThemeColors from '../hooks/useThemeColors';
 import { ChevronDown, ChevronUp, Plus, X, Upload } from 'lucide-react';  
 
-const DashboardGrid = () => {
+const DashboardGrid = ({ onNavigate }) => {
   const { 
     cards, 
     reorderCards,
@@ -133,8 +133,12 @@ const DashboardGrid = () => {
     };
   };
 
-  const pinnedCards = cards.filter((card) => card.pinned);
-  const unpinnedCards = cards.filter((card) => !card.pinned);
+  // Filter out specific cards (add card IDs you want to hide)
+  const hiddenCardIds = ['attendance', 'leave-balance', 'payroll','pending-approvals','leave-requests','team-members'];
+  const visibleCards = cards.filter((card) => !hiddenCardIds.includes(card.id));
+  
+  const pinnedCards = visibleCards.filter((card) => card.pinned);
+  const unpinnedCards = visibleCards.filter((card) => !card.pinned);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -242,7 +246,8 @@ const DashboardGrid = () => {
               </h2>
             </div>
             <div className="flex items-center gap-2">
-              <input
+              {/* Upload button commented out */}
+              {/* <input
                 ref={fileInputRef}
                 type="file"
                 accept=".csv"
@@ -250,17 +255,19 @@ const DashboardGrid = () => {
                 className="hidden"
               />
               <button 
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => onNavigate && onNavigate('upload')}
                 className={`p-1.5 bg-gradient-to-r ${colors.gradient} text-white rounded-lg shadow-md hover:shadow-lg transition-shadow`}
+                title="Go to Upload Page"
               >
                 <Upload className="w-4 h-4" />
-              </button>
-              <button 
+              </button> */}
+              {/* Add button commented out */}
+              {/* <button 
                 onClick={() => setIsCreateModalOpen(true)}
                 className={`p-1.5 bg-gradient-to-r ${colors.gradient} text-white rounded-lg shadow-md hover:shadow-lg transition-shadow`}
               >
                 <Plus className="w-4 h-4" />
-              </button>
+              </button> */}
             </div>
           </div>
           <SortableContext

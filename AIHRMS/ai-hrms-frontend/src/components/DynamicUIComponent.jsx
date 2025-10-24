@@ -120,12 +120,10 @@ const DynamicUIComponent = ({ layoutData, data }) => {
 
   // Extract employee data from various API response formats
   let employees = [];
-  console.log("Data received:", data);
+  console.log("asdasd:",data);
   
   // Handle different API response structures
-  if (data?.database_results?.select_employees_0?.data) {
-    employees = data.database_results.select_employees_0.data;
-  } else if (data?.results?.unified_results) {
+  if (data?.results?.unified_results) {
     employees = data?.results?.unified_results;
   } else if (data.apiResponse && Array.isArray(data.apiResponse)) {
     employees = data.apiResponse;

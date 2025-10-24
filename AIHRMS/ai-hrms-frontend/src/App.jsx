@@ -18,7 +18,7 @@ function App() {
   // Set current page based on dynamic UI state
   useEffect(() => {
     if (showDynamicUI) {
-      setCurrentPage('dashboard');
+      setCurrentPage('dynamicUI');
     }
   }, [showDynamicUI]);
 
@@ -91,7 +91,7 @@ function App() {
       
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
-      setCurrentPage('dashboard');
+      setCurrentPage('dynamicUI');
       setSelectedFile(null);
     } catch (error) {
       console.error('Upload error:', error);
@@ -115,7 +115,7 @@ function App() {
 
   useEffect(() => {
     // Navigate back to upload page when dynamic UI is closed
-    if (!showDynamicUI && currentPage === 'dashboard') {
+    if (!showDynamicUI && currentPage === 'dynamicUI') {
       setCurrentPage('upload');
     }
   }, [showDynamicUI, currentPage]);
@@ -129,13 +129,13 @@ function App() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       {/* Toast Notification */}
       {showToast && (
-        <div className="fixed top-6 left-1/2 transform -translate-x-1/2 bg-emerald-600 text-white px-4 py-2 rounded-md shadow-sm flex items-center gap-2 z-50">
+        <div className="fixed top-20 right-9 bg-emerald-600 text-white px-4 py-2 rounded-md shadow-sm flex items-center gap-2 z-50">
           <CheckCircle className="w-4 h-4" />
           File uploaded successfully
         </div>
       )}
       <div className="relative z-10 flex flex-col h-screen">
-        <Header />
+        <Header onNavigate={setCurrentPage} currentPage={currentPage} />
         {currentPage === 'upload' ? (
           <div className="flex-1 flex items-start justify-center pt-24">
             <div className="w-full max-w-md">
@@ -199,9 +199,13 @@ function App() {
             </div>
             </div>
           </div>
+        ) : currentPage === 'dashboard' ? (
+          <div className="flex-1 overflow-auto p-6">
+            <DashboardGrid onNavigate={setCurrentPage} />
+          </div>
         ) : (
           <div className="flex-1 overflow-auto">
-            <DashboardGrid />
+            <DashboardGrid onNavigate={setCurrentPage} />
           </div>
         )}
       </div>
