@@ -15,6 +15,13 @@ function App() {
   const [showToast, setShowToast] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
 
+  // Set current page based on dynamic UI state
+  useEffect(() => {
+    if (showDynamicUI) {
+      setCurrentPage('dashboard');
+    }
+  }, [showDynamicUI]);
+
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file && file.type === 'text/csv') {
@@ -79,6 +86,8 @@ function App() {
         dynamicData: data,
         isGenerating: false
       });
+      
+      // Data is now automatically persisted by the store
       
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
