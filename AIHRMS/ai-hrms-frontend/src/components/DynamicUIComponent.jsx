@@ -41,12 +41,12 @@ const PaginatedTable = ({ data, getFieldLabel }) => {
   const flattenedData = data.map(item => {
     const flattened = { ...item };
     if (item.projects && Array.isArray(item.projects) && item.projects.length > 0) {
-      flattened.project_name = item.projects.map(p => p.project_name);
+      flattened.project = item.projects.map(p => p.project_name);
       flattened.customer = item.projects.map(p => p.customer);
       delete flattened.projects;
     } else if (item.project && item.customer) {
       // Handle direct project/customer fields from search results
-      flattened.project_name = item.project;
+      // project field already exists, no need to map
       // customer field already exists, no need to map
     }
     return flattened;
@@ -61,10 +61,14 @@ const PaginatedTable = ({ data, getFieldLabel }) => {
     field !== 'type' &&
     field !== 'score' &&
     field !== 'source' &&
-    field !== 'parsed_experience'
+    field !== 'parsed_experience' &&
+    field !== 'project_name' &&
+    field !== 'project_department' &&
+    field !== 'project_industry' &&
+    field !== 'joined_date'
   );
   
-  // Reorder columns: project_count after customer, skill_set at end
+  // Reorder columns: customer after project, project_count after customer, skill_set at end
   const otherFields = filteredFields.filter(field => 
     field !== 'skill_set' && field !== 'project_count' && field !== 'customer'
   );
@@ -74,8 +78,8 @@ const PaginatedTable = ({ data, getFieldLabel }) => {
   // Add all fields except customer, project_count, and skill_set
   otherFields.forEach(field => {
     displayFields.push(field);
-    if (field === 'project_name') {
-      // Add customer and project_count after project_name
+    if (field === 'project') {
+      // Add customer and project_count after project
       if (filteredFields.includes('customer')) displayFields.push('customer');
       if (filteredFields.includes('project_count')) displayFields.push('project_count');
     }
