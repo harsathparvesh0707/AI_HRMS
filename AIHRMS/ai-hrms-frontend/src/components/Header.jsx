@@ -1,4 +1,4 @@
-import { Moon, Sun, Bell, LogOut, BarChart3, Search, X, Clock, TrendingUp, Grid3X3, Home, FileUp } from 'lucide-react';
+import { Moon, Sun, Bell, LogOut, BarChart3, Search, X, Clock, TrendingUp, Grid3X3, Home } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import useStore from '../store/useStore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -83,79 +83,7 @@ const Header = ({ onNavigate, currentPage }) => {
             </p>
           </div>
           
-          {/* Navigation Tabs */}
-          <nav className="flex items-center">
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 shadow-inner">
-              <button
-                onClick={() => {
-                  hideDynamicUI();
-                  onNavigate('dashboard');
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative overflow-hidden ${
-                  currentPage === 'dashboard' 
-                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-md transform scale-105'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                }`}
-              >
-                <motion.div
-                  animate={{
-                    rotate: currentPage === 'dashboard' ? 360 : 0,
-                    scale: currentPage === 'dashboard' ? 1.1 : 1
-                  }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Home className="w-4 h-4" />
-                </motion.div>
-                <span className="relative">
-                  Dashboard
-                  {currentPage === 'dashboard' && (
-                    <motion.div
-                      layoutId="activeTab"
-                      className="absolute -bottom-1 left-0 right-0 h-0.5 bg-blue-500 rounded-full"
-                      initial={false}
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                </span>
-              </button>
-              
-              <button
-                onClick={() => {
-                  hideDynamicUI();
-                  onNavigate('upload');
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative overflow-hidden ${
-                  currentPage === 'upload' 
-                    ? 'bg-white dark:bg-slate-700 text-blue-500 dark:text-blue-500 shadow-md transform scale-105'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                }`}
-              >
-                <motion.div
-                  animate={{
-                    y: currentPage === 'upload' ? [-2, 0, -2] : 0,
-                    scale: currentPage === 'upload' ? 1.1 : 1
-                  }}
-                  transition={{ 
-                    y: { repeat: currentPage === 'upload' ? Infinity : 0, duration: 1.5 },
-                    scale: { duration: 0.3 }
-                  }}
-                >
-                  <FileUp className="w-4 h-4" />
-                </motion.div>
-                <span className="relative">
-                  Upload
-                  {currentPage === 'upload' && (
-                    <motion.div
-                      layoutId="activeTab"
-                      className="absolute -bottom-1 left-0 right-0 h-0.5 bg-blue-500 rounded-full"
-                      initial={false}
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                </span>
-              </button>
-            </div>
-          </nav>
+
         </div>
 
         {/* Enhanced Global Search */}

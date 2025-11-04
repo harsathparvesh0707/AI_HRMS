@@ -39,10 +39,15 @@ import {
   Area,
   AreaChart,
   Cell,
+  PieChart,
+  Pie,
 } from 'recharts';
 
 const DashboardCard = ({ card }) => {
-  const { togglePin, removeCard } = useStore();
+  const { togglePin, removeCard, dynamicData, dashboardData} = useStore();
+  
+  // Always use dashboardData for dashboard cards if available, fallback to dynamicData
+  const cardData = dashboardData || dynamicData;
   const colors = useThemeColors();
 
   const {
@@ -70,6 +75,8 @@ const DashboardCard = ({ card }) => {
         return <TrendingUp className="w-4 h-4" />;
       case 'announcements':
         return <Megaphone className="w-4 h-4" />;
+        case 'project-details':
+        return <BarChart2 className="w-4 h-4" />;
       case 'recruitment':
         return <UserCheck className="w-4 h-4" />;
       case 'payroll':
@@ -389,13 +396,85 @@ const DashboardCard = ({ card }) => {
           </div>
         );
 
+      // case 'department':
+      //   const deptHeight = card.size === 'wide' || card.size === 'large' ? 'h-36' : 'h-32';
+      //   return (
+      //     <div className="py-2">
+      //       <div className="flex items-center justify-between mb-2 px-2">
+      //         <span className="text-lg font-bold text-slate-900 dark:text-white">
+      //           {card.data.total}
+      //         </span>
+      //         <span className="text-[10px] text-slate-500 dark:text-slate-400">
+      //           Total Staff
+      //         </span>
+      //       </div>
+      //       <div className={`${deptHeight}`}>
+      //         <ResponsiveContainer width="100%" height="100%">
+      //           <BarChart data={card.data.departments} layout="vertical">
+      //             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
+      //             <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+      //             <YAxis
+      //               type="category"
+      //               dataKey="name"
+      //               stroke="#64748b"
+      //               fontSize={10}
+      //               tickLine={false}
+      //               axisLine={false}
+      //               width={80}
+      //             />
+      //             <Tooltip
+      //               contentStyle={{
+      //                 backgroundColor: '#1e293b',
+      //                 border: 'none',
+      //                 borderRadius: '8px',
+      //                 color: '#fff',
+      //                 fontSize: '12px',
+      //                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+      //               }}
+      //             />
+      //             <Bar dataKey="count" radius={[0, 8, 8, 0]}>
+      //               {card.data.departments.map((dept, index) => (
+      //                 <Cell key={`cell-${index}`} fill={dept.color} />
+      //               ))}
+      //             </Bar>
+      //           </BarChart>
+      //         </ResponsiveContainer>
+      //       </div>
+      //     </div>
+      //   );
       case 'department':
-        const deptHeight = card.size === 'wide' || card.size === 'large' ? 'h-36' : 'h-32';
+        const deptHeight = card.size === 'wide' || card.size === 'large' ? 'h-48' : 'h-40';
+        
+        // Generate department data from dynamicData if available
+        let departmentData = card.data.departments;
+        let totalStaff = card.data.total;
+        
+        if (dynamicData?.database_results?.select_employees_0?.data) {
+          const employees = dynamicData.database_results.select_employees_0.data;
+          const departmentCounts = {};
+          
+          employees.forEach(emp => {
+            const dept = emp.employee_department || 'Unknown';
+            departmentCounts[dept] = (departmentCounts[dept] || 0) + 1;
+          });
+          
+          const colorPalette = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316'];
+          departmentData = Object.entries(departmentCounts).map(([name, count], index) => ({
+            name: name.length > 10 ? name.substring(0, 10) + '...' : name,
+            fullName: name,
+            count: Math.ceil(count / 10) * 10,
+            actualCount: count,
+            color: colorPalette[index % colorPalette.length]
+          }));
+          
+          totalStaff = employees.length;
+        }
+        
         return (
           <div className="py-2">
             <div className="flex items-center justify-between mb-2 px-2">
               <span className="text-lg font-bold text-slate-900 dark:text-white">
-                {card.data.total}
+                {totalStaff}
               </span>
               <span className="text-[10px] text-slate-500 dark:text-slate-400">
                 Total Staff
@@ -403,30 +482,37 @@ const DashboardCard = ({ card }) => {
             </div>
             <div className={`${deptHeight}`}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={card.data.departments} layout="vertical">
+                <BarChart data={departmentData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
-                  <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                  <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} domain={[0, 'dataMax']} />
                   <YAxis
                     type="category"
                     dataKey="name"
                     stroke="#64748b"
-                    fontSize={10}
+                    fontSize={7}
                     tickLine={false}
                     axisLine={false}
-                    width={80}
+                    width={90}
+                    interval={0}
                   />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: '#1e293b',
                       border: 'none',
                       borderRadius: '8px',
-                      color: '#fff',
+                      color: '#ffffff',
                       fontSize: '12px',
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                     }}
+                    labelStyle={{ color: '#ffffff' }}
+                    formatter={(value, name, props) => [
+                      `${props.payload.actualCount} employees`,
+                      props.payload.fullName
+                    ]}
+                    labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
                   />
                   <Bar dataKey="count" radius={[0, 8, 8, 0]}>
-                    {card.data.departments.map((dept, index) => (
+                    {departmentData.map((dept, index) => (
                       <Cell key={`cell-${index}`} fill={dept.color} />
                     ))}
                   </Bar>
@@ -466,37 +552,133 @@ const DashboardCard = ({ card }) => {
               </div>
             </div>
             <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-center">
-              <span className="text-xs font-semibold text-slate-900 dark:text-white">
-                {card.data.completionRate}% Completion Rate
-              </span>
+              <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Completion Rate: {card.data.completionRate}%
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'project-details':
+        const projectColors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+        const projectData = card.data.projects.map((project, index) => ({
+          ...project,
+          fill: projectColors[index % projectColors.length]
+        }));
+        const totalProjectEmployees = projectData.reduce((sum, p) => sum + p.employeesWorking, 0);
+        
+        return (
+          <div className="py-2">
+            <div className="text-center mb-3">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                {totalProjectEmployees}
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                Total Employees
+              </div>
+            </div>
+            <motion.div 
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ duration: 1.2, type: "spring", bounce: 0.3 }}
+              className="h-60"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={projectData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={95}
+                    paddingAngle={4}
+                    dataKey="employeesWorking"
+                    animationBegin={200}
+                    animationDuration={1000}
+                  >
+                    {projectData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '12px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    }}
+                    formatter={(value, name, props) => [
+                      `${value} employees`,
+                      props.payload.projectCode
+                    ]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </motion.div>
+            <div className="grid grid-cols-2 gap-1 mt-2">
+              {projectData.slice(0, 4).map((project, index) => (
+                <div key={index} className="flex items-center gap-1 text-xs">
+                  <div 
+                    className="w-2 h-2 rounded-full" 
+                    style={{ backgroundColor: project.fill }}
+                  />
+                  <span className="text-slate-700 dark:text-slate-300 font-medium truncate">
+                    {project.projectCode}
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-400 ml-auto">
+                    {project.employeesWorking}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         );
 
       case 'stats':
+        // Get dynamic data if available
+        const employees = cardData?.database_results?.select_employees_0?.data || [];
+        const totalEmployees = employees.length || card.data.metrics[0].value;
+        const freepoolCount = employees.filter(emp => emp.is_free_pool === true).length;
+        const activeCount = employees.filter(emp => emp.is_free_pool === false).length;
+        
         return (
           <div className="py-2">
             <div className="grid grid-cols-2 gap-2">
-              {card.data.metrics.map((metric, idx) => (
-                <div key={idx} className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                  <div className="text-lg font-bold text-slate-900 dark:text-white">
-                    {metric.value}
+              {card.data.metrics.map((metric, idx) => {
+                let displayValue = metric.value;
+                if (metric.label === 'Total Employees') {
+                  displayValue = totalEmployees;
+                } else if (metric.label === 'Freepool') {
+                  displayValue = freepoolCount;
+                } else if (metric.label === 'Turnover Rate') {
+                  displayValue = freepoolCount;
+                } else if (metric.label === 'Avg Tenure') {
+                  displayValue = activeCount;
+                }
+                
+                return (
+                  <div key={idx} className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                    <div className="text-lg font-bold text-slate-900 dark:text-white">
+                      {displayValue}
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-1">
+                      {metric.label === 'Turnover Rate' ? 'Freepool' : metric.label === 'Avg Tenure' ? 'Active employee' : metric.label}
+                    </div>
+                    <div className={`flex items-center gap-1 text-[10px] font-semibold ${
+                      metric.trend === 'up' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {metric.trend === 'up' ? (
+                        <ArrowUp className="w-3 h-3" />
+                      ) : (
+                        <ArrowDown className="w-3 h-3" />
+                      )}
+                      {metric.change}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-1">
-                    {metric.label}
-                  </div>
-                  <div className={`flex items-center gap-1 text-[10px] font-semibold ${
-                    metric.trend === 'up' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {metric.trend === 'up' ? (
-                      <ArrowUp className="w-3 h-3" />
-                    ) : (
-                      <ArrowDown className="w-3 h-3" />
-                    )}
-                    {metric.change}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );
@@ -527,6 +709,11 @@ const DashboardCard = ({ card }) => {
         );
 
       case 'employee-list':
+        // Get random employees from dynamic data if available
+        const allEmployees = cardData?.database_results?.select_employees_0?.data || [];
+        const shuffledEmployees = allEmployees.sort(() => 0.5 - Math.random()).slice(0, 6);
+        const displayEmployees = shuffledEmployees.length > 0 ? shuffledEmployees : card.data.employees.slice(0, 6);
+        
         return (
           <div className="py-2">
             <div className="flex gap-1 mb-2 overflow-x-auto scrollbar-hide">
@@ -540,9 +727,9 @@ const DashboardCard = ({ card }) => {
               ))}
             </div>
             <div className="space-y-1 max-h-64 overflow-y-auto scrollbar-hide">
-              {card.data.employees.slice(0, 6).map((emp, idx) => (
+              {displayEmployees.map((emp, idx) => (
                 <motion.div
-                  key={emp.id}
+                  key={emp.employee_id || emp.id || idx}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.03 }}
@@ -550,24 +737,24 @@ const DashboardCard = ({ card }) => {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                      {emp.name}
+                      {emp.display_name}
                     </p>
                     <div className="flex items-center gap-2">
                       <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                        {emp.position}
+                        {emp.designation || emp.position}
                       </p>
                       <span className="text-[10px] text-slate-400">•</span>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                        {emp.department}
+                        {emp.employee_department || emp.department}
                       </p>
                     </div>
                   </div>
                   <div className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
-                    emp.status === 'Active'
+                    (emp.is_free_pool === false )
                       ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
                       : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
                   }`}>
-                    {emp.status}
+                    {emp.is_free_pool === false ? 'Active' : emp.is_free_pool === true ? 'Freepool' : emp.status}
                   </div>
                 </motion.div>
               ))}

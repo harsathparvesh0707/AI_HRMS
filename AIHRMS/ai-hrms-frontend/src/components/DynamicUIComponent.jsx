@@ -210,19 +210,29 @@ const DynamicUIComponent = ({ layoutData }) => {
 
   // Extract employee data from various API response formats
   let employees = [];
-  console.log("asdfgghjk",dynamicData);
+  console.log("API Response Structure:", dynamicData);
   
   // Handle different API response structures
   if (dynamicData?.results?.unified_results) {
-    employees = dynamicData.results.unified_results
+    employees = dynamicData.results.unified_results;
   } else if (dynamicData?.database_results?.select_employees_0?.data) {
-    employees = dynamicData.database_results.select_employees_0.data
+    employees = dynamicData.database_results.select_employees_0.data;
+  } else if (dynamicData?.data?.results?.unified_results) {
+    employees = dynamicData.data.results.unified_results;
+  } else if (dynamicData?.data?.database_results?.select_employees_0?.data) {
+    employees = dynamicData.data.database_results.select_employees_0.data;
+  } else if (Array.isArray(dynamicData)) {
+    employees = dynamicData;
+  } else if (dynamicData?.data && Array.isArray(dynamicData.data)) {
+    employees = dynamicData.data;
   }
   
   // Handle nested rows structure
-  if (employees.rows && Array.isArray(employees.rows)) {
+  if (employees?.rows && Array.isArray(employees.rows)) {
     employees = employees.rows;
   }
+  
+  console.log("Extracted employees:", employees);
 
 
   const layout = layoutData.layout || layoutData;

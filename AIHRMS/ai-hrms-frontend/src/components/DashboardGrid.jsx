@@ -85,6 +85,7 @@ const DashboardGrid = ({ onNavigate }) => {
         useStore.setState({ 
           dynamicLayout: layout,
           dynamicData: { apiResponse: result },
+          dashboardData: { apiResponse: result },
           isGenerating: false
         });
       } catch (error) {
@@ -99,6 +100,7 @@ const DashboardGrid = ({ onNavigate }) => {
     }
     event.target.value = ''; // Reset file input
   };
+  console.log("grid", dynamicData);
 
   const parseCsvFile = (file) => {
     return new Promise((resolve, reject) => {
@@ -279,28 +281,14 @@ const DashboardGrid = ({ onNavigate }) => {
               </h2>
             </div>
             <div className="flex items-center gap-2">
-              {/* Upload button commented out */}
-              {/* <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
               <button 
                 onClick={() => onNavigate && onNavigate('upload')}
-                className={`p-1.5 bg-gradient-to-r ${colors.gradient} text-white rounded-lg shadow-md hover:shadow-lg transition-shadow`}
-                title="Go to Upload Page"
+                className={`flex items-center gap-2 px-3 py-2 bg-gradient-to-r ${colors.gradient} text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm font-medium -mt-3`}
+                title="Upload CSV File"
               >
                 <Upload className="w-4 h-4" />
-              </button> */}
-              {/* Add button commented out */}
-              {/* <button 
-                onClick={() => setIsCreateModalOpen(true)}
-                className={`p-1.5 bg-gradient-to-r ${colors.gradient} text-white rounded-lg shadow-md hover:shadow-lg transition-shadow`}
-              >
-                <Plus className="w-4 h-4" />
-              </button> */}
+                
+              </button>
             </div>
           </div>
           <SortableContext

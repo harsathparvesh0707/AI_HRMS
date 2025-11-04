@@ -3,6 +3,7 @@ import { Upload, CheckCircle, X } from 'lucide-react';
 import Login from './components/Login';
 import Header from './components/Header';
 import DashboardGrid from './components/DashboardGrid';
+import ProjectAlert from './components/ProjectAlert';
 
 import useStore from './store/useStore';
 import useThemeColors from './hooks/useThemeColors';
@@ -11,7 +12,7 @@ function App() {
   const { theme, isAuthenticated, showDynamicUI, isGenerating } = useStore();
   const colors = useThemeColors();
   const fileInputRef = useRef(null);
-  const [currentPage, setCurrentPage] = useState('upload');
+  const [currentPage, setCurrentPage] = useState('dashboard');
   const [showToast, setShowToast] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
 
@@ -114,9 +115,9 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    // Navigate back to upload page when dynamic UI is closed
+    // Navigate back to dashboard when dynamic UI is closed
     if (!showDynamicUI && currentPage === 'dynamicUI') {
-      setCurrentPage('upload');
+      setCurrentPage('dashboard');
     }
   }, [showDynamicUI, currentPage]);
 
@@ -127,6 +128,9 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+      {/* Project Alert */}
+      {currentPage === 'dashboard' && <ProjectAlert />}
+      
       {/* Toast Notification */}
       {showToast && (
         <div className="fixed top-20 right-9 bg-emerald-600 text-white px-4 py-2 rounded-md shadow-sm flex items-center gap-2 z-50">
@@ -139,6 +143,20 @@ function App() {
         {currentPage === 'upload' ? (
           <div className="flex-1 flex items-start justify-center pt-24">
             <div className="w-full max-w-md">
+            <div className="absolute top-20 left-6">
+  <div className="flex items-center mb-6">
+    <button
+      onClick={() => setCurrentPage('dashboard')}
+      className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+    >
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+      </svg>
+      Back to Dashboard
+    </button>
+  </div>
+</div>
+
               <div className="text-center mb-8">
                 <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Upload CSV File</h1>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">Select a CSV file to upload and process</p>
@@ -199,12 +217,8 @@ function App() {
             </div>
             </div>
           </div>
-        ) : currentPage === 'dashboard' ? (
-          <div className="flex-1 overflow-auto p-6">
-            <DashboardGrid onNavigate={setCurrentPage} />
-          </div>
         ) : (
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto p-6">
             <DashboardGrid onNavigate={setCurrentPage} />
           </div>
         )}

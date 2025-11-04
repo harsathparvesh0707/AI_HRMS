@@ -269,6 +269,22 @@ const useStore = create(
             ],
           },
         },
+        {
+          id: 'project-details',
+          title: 'Project Distribution',
+          type: 'project-details',
+          pinned: false,
+          size: 'medium',
+          data: {
+            projects: [
+              { projectCode: 'VVDN_MEXS', employeesWorking: 42 },
+              { projectCode: 'INSU_PEGS', employeesWorking: 28 },
+              { projectCode: 'NTGU_IMDV', employeesWorking: 35 },
+              { projectCode: 'CRCU_BLUP', employeesWorking: 18 },
+              { projectCode: 'VIMU_GSUP', employeesWorking: 50 }
+            ]
+          },
+        },
       ],
 
       addCard: (card) =>
@@ -377,7 +393,7 @@ const useStore = create(
               ]
             }
           };
-          
+          console.log(results);
           set({ 
             dynamicLayout: layout,
             dynamicData: results.data,
@@ -392,7 +408,7 @@ const useStore = create(
       hideDynamicUI: () => set({ 
         showDynamicUI: false, 
         dynamicLayout: null, 
-        dynamicData: null,
+        // dynamicData: null,
         userQuery: ''
       }),
     }),
