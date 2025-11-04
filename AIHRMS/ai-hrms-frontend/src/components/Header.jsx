@@ -10,7 +10,7 @@ const Header = ({ onNavigate, currentPage }) => {
   const colors = useThemeColors();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [recentSearches, setRecentSearches] = useState(['Active employees', 'Department wise count', 'Employee details']);
+  const [recentSearches, setRecentSearches] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef(null);
   const suggestionsRef = useRef(null);
@@ -146,8 +146,8 @@ const Header = ({ onNavigate, currentPage }) => {
             </motion.div>
           </form>
 
-          {/* Search Suggestions Dropdown - Temporarily Disabled */}
-          {/* <AnimatePresence>
+          {/* Search Suggestions Dropdown */}
+          <AnimatePresence>
             {showSuggestions && !isGenerating && (
               <motion.div
                 ref={suggestionsRef}
@@ -158,14 +158,22 @@ const Header = ({ onNavigate, currentPage }) => {
                 className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden"
               >
                 {/* Recent Searches */}
-                {/* {recentSearches.length > 0 && (
-                  <div className="p-3 border-b border-slate-100 dark:border-slate-700">
+                {recentSearches.filter(search => 
+                  search !== 'Active employees' && 
+                  search !== 'Department wise count' && 
+                  search !== 'Employee details'
+                ).length > 0 && (
+                  <div className="p-3">
                     <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
                       <Clock className="w-3 h-3" />
                       Recent Searches
                     </h4>
                     <div className="space-y-1">
-                      {recentSearches.map((search, index) => (
+                      {recentSearches.filter(search => 
+                        search !== 'Active employees' && 
+                        search !== 'Department wise count' && 
+                        search !== 'Employee details'
+                      ).map((search, index) => (
                         <button
                           key={index}
                           onClick={(e) => {
@@ -180,62 +188,10 @@ const Header = ({ onNavigate, currentPage }) => {
                       ))}
                     </div>
                   </div>
-                )} */}
-                
-                {/* Quick Suggestions */}
-                {/* <div className="p-3">
-                  <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                    Quick Actions
-                  </h4>
-                  <div className="space-y-1">
-                    {searchSuggestions.map((suggestion, index) => {
-                      const IconComponent = suggestion.icon;
-                      return (
-                        <button
-                          key={index}
-                          onClick={(e) => {
-                            setSearchQuery(suggestion.text);
-                            handleSearch(e, suggestion.text);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-3 group"
-                        >
-                          <IconComponent className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                          <span className="group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                            {suggestion.text}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div> */}
-                
-                {/* Dashboard Link in Suggestions */}
-                {/* <div className="p-3 border-t border-slate-100 dark:border-slate-700">
-                  <button
-                    onClick={() => {
-                      hideDynamicUI();
-                      onNavigate('dashboard');
-                      setShowSuggestions(false);
-                      setIsSearchFocused(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-3 group"
-                  >
-                    <Home className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    <span className="group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                      Go to Dashboard
-                    </span>
-                  </button>
-                </div> */}
-                
-                {/* Search Tips */}
-                {/* <div className="px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border-t border-slate-100 dark:border-slate-700">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    💡 Try asking: "Show me employees in Freepool" or "Show me employees in VVDN_ICEE"
-                  </p>
-                </div>
+                )}
               </motion.div>
             )}
-          </AnimatePresence> */}
+          </AnimatePresence>
         </div>
 
         {/* Right Section */}

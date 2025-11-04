@@ -55,7 +55,6 @@ function App() {
         throw new Error(`Upload failed: ${response.statusText}`);
       }
       const responseData = await response.json();
-      console.log("qerewqwertyu",responseData);
       
       let tableData = [];
       if (responseData.all_employees && Array.isArray(responseData.all_employees)) {

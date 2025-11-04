@@ -1,0 +1,68 @@
+{
+  "all_employees": [
+    {
+      "employee_id": "VVDN/18707",
+      "display_name": "Vishnu V S",
+      "employee_department": "Cloud and Mobile Apps",
+      "deployment": "Billable",
+      "total_exp": "6Y 2M",
+      "vvdn_exp": "2Y 8M",
+      "designation": "Sr Engineer (Software)",
+      "tech_group": "Frontend - Angular",
+      "emp_location": "Kochi",
+      "skill_set": "Lua Scripting 3,Client Data Security Training ,Lua Scripting- 1,Javascript,Angular",
+      "is_free_pool": false,
+      "deployment_status": "billable",
+      "score": 80,
+      "reason": "Strong match with 6+ years total experience and 2+ years at VVDN. Frontend Angular specialist with JavaScript expertise. Senior level designation indicates leadership capabilities."
+    },
+    {
+      "employee_id": "VVDN/30441",
+      "display_name": "Akshay Babu K",
+      "employee_department": "Cloud and Mobile Apps",
+      "deployment": "Free",
+      "total_exp": "0Y 0M",
+      "vvdn_exp": "1Y 1M",
+      "designation": "Engineer (Software)",
+      "tech_group": "Frontend - Angular",
+      "emp_location": "Kochi",
+      "skill_set": "Communication : Tenses ,Web Technologies,SQL",
+      "is_free_pool": true,
+      "deployment_status": "free",
+      "score": 40,
+      "reason": "Junior developer with 1+ year VVDN experience. Frontend Angular tech group but limited Angular-specific skills. Available immediately as free pool resource."
+    },
+    {
+      "employee_id": "VVDN/20601",
+      "display_name": "Tinu Thomas",
+      "employee_department": "Cloud and Mobile Apps",
+      "deployment": "Billable",
+      "total_exp": "6Y 2M",
+      "vvdn_exp": "2Y 3M",
+      "designation": "Sr Engineer (Software)",
+      "tech_group": "Frontend - Angular",
+      "emp_location": "Kochi",
+      "is_free_pool": false,
+      "skill_set": "Lua Scripting 3,Client Data Security Training ,Lua Scripting- 1,Javascript,Angular",
+      "deployment_status": "billable",
+      "score": 50,
+      "reason": "Solid 6+ years experience with Angular and JavaScript skills. Frontend Angular tech group alignment. Currently billable but could be considered for high-priority projects."
+    },
+    {
+      "employee_id": "VVDN/34486",
+      "display_name": "Brijesh Kumar Tiwari",
+      "employee_department": "Cloud and Mobile Apps",
+      "deployment": "Budgeted",
+      "total_exp": "10Y 4M",
+      "vvdn_exp": "0Y 4M",
+      "designation": "Sr Designer (Design)",
+      "tech_group": "Frontend - Angular",
+      "emp_location": "Noida",
+      "skill_set": "Lua Scripting 3,Client Data Security Training ,Lua Scripting- 1,Javascript,Angular",  
+      "is_free_pool": false,
+      "deployment_status": "budgeted",
+      "score": 55,
+      "reason": "Extensive 10+ years total experience with Angular and JavaScript expertise. Senior Designer level with Frontend Angular specialization. Currently budgeted with potential availability."
+    }
+  ]
+}

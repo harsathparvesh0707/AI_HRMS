@@ -303,4 +303,4 @@ RESPOND WITH COMPLETE JSON:
   }
 }
 
-export default new QwenFormatter();
+export default new QwenFormatter(); 
