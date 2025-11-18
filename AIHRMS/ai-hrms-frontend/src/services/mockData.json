@@ -10,27 +10,41 @@
       "designation": "Sr Engineer (Software)",
       "tech_group": "Frontend - Angular",
       "emp_location": "Kochi",
-      "skill_set": "Lua Scripting 3,Client Data Security Training ,Lua Scripting- 1,Javascript,Angular",
+      "skill_set": "Angular, JavaScript, UI Design, Team Collaboration, Problem Solving",
       "is_free_pool": false,
       "deployment_status": "billable",
-      "score": 80,
-      "reason": "Strong match with 6+ years total experience and 2+ years at VVDN. Frontend Angular specialist with JavaScript expertise. Senior level designation indicates leadership capabilities."
+      "score": 82,
+      "category_scores": {
+        "Technical Expertise": 88,
+        "Communication": 76,
+        "Team Collaboration": 84,
+        "Problem Solving": 90,
+        "Adaptability": 70
+      },
+      "reason": "Strong Angular and JavaScript expertise with excellent problem-solving and team collaboration skills. Well-suited for leading complex frontend projects."
     },
     {
       "employee_id": "VVDN/30441",
       "display_name": "Akshay Babu K",
       "employee_department": "Cloud and Mobile Apps",
       "deployment": "Free",
-      "total_exp": "0Y 0M",
+      "total_exp": "1Y 1M",
       "vvdn_exp": "1Y 1M",
       "designation": "Engineer (Software)",
       "tech_group": "Frontend - Angular",
       "emp_location": "Kochi",
-      "skill_set": "Communication : Tenses ,Web Technologies,SQL",
+      "skill_set": "HTML, CSS, SQL, Communication, Web Technologies",
       "is_free_pool": true,
       "deployment_status": "free",
-      "score": 40,
-      "reason": "Junior developer with 1+ year VVDN experience. Frontend Angular tech group but limited Angular-specific skills. Available immediately as free pool resource."
+      "score": 54,
+      "category_scores": {
+        "Technical Expertise": 58,
+        "Communication": 72,
+        "Team Collaboration": 65,
+        "Problem Solving": 49,
+        "Adaptability": 60
+      },
+      "reason": "Developing engineer with strong communication and basic frontend skills. Needs more exposure to complex projects to strengthen technical expertise."
     },
     {
       "employee_id": "VVDN/20601",
@@ -43,10 +57,17 @@
       "tech_group": "Frontend - Angular",
       "emp_location": "Kochi",
       "is_free_pool": false,
-      "skill_set": "Lua Scripting 3,Client Data Security Training ,Lua Scripting- 1,Javascript,Angular",
+      "skill_set": "Angular, JavaScript, UI Optimization, API Integration, Debugging",
       "deployment_status": "billable",
-      "score": 50,
-      "reason": "Solid 6+ years experience with Angular and JavaScript skills. Frontend Angular tech group alignment. Currently billable but could be considered for high-priority projects."
+      "score": 75,
+      "category_scores": {
+        "Technical Expertise": 80,
+        "Communication": 68,
+        "Team Collaboration": 77,
+        "Problem Solving": 74,
+        "Adaptability": 72
+      },
+      "reason": "Solid experience in Angular and JavaScript with consistent performance across technical and collaboration metrics."
     },
     {
       "employee_id": "VVDN/34486",
@@ -58,11 +79,18 @@
       "designation": "Sr Designer (Design)",
       "tech_group": "Frontend - Angular",
       "emp_location": "Noida",
-      "skill_set": "Lua Scripting 3,Client Data Security Training ,Lua Scripting- 1,Javascript,Angular",  
+      "skill_set": "Angular, UX Design, JavaScript, Creative Direction, Prototyping",
       "is_free_pool": false,
       "deployment_status": "budgeted",
-      "score": 55,
-      "reason": "Extensive 10+ years total experience with Angular and JavaScript expertise. Senior Designer level with Frontend Angular specialization. Currently budgeted with potential availability."
+      "score": 68,
+      "category_scores": {
+        "Technical Expertise": 70,
+        "Communication": 65,
+        "Team Collaboration": 72,
+        "Problem Solving": 66,
+        "Adaptability": 67
+      },
+      "reason": "Experienced senior designer with a blend of creative and technical skills. Performs consistently across all evaluation areas."
     }
   ]
 }

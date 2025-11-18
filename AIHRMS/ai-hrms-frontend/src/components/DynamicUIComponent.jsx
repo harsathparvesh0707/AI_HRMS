@@ -245,14 +245,60 @@ const RequirementCard = ({ employee }) => {
           )}
         </div>
         
-        {/* Center Right - Score */}
-        <div className="text-center">
-          <div className={`text-5xl font-bold ${colors.scoreColor} mb-1`}>
-            {score || 0}%
+        {/* Right Section - Score & Category Breakdown */}
+        <div className="w-80">
+          <div className="flex items-center justify-center mb-6">
+            <div className="relative w-24 h-24">
+              <svg className="w-24 h-24 transform rotate-0" viewBox="0 0 36 36">
+                <path
+                  className="text-slate-200 dark:text-slate-700"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  fill="transparent"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className={colors.scoreColor.replace('text-', 'text-')}
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeDasharray={`${score || 0}, 100`}
+                  strokeLinecap="round"
+                  fill="transparent"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className={`text-lg font-bold ${colors.scoreColor}`}>
+                  {score || 0}%
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-            MATCH
-          </div>
+          
+          {employee.category_scores && (
+            <div className="space-y-3">
+              {Object.entries(employee.category_scores).map(([category, categoryScore]) => (
+                <div key={category} className="relative">
+                  <div className="bg-slate-200 dark:bg-slate-700 rounded-full h-8 flex items-center">
+                    <div 
+                      className={`h-8 rounded-full flex items-center justify-between px-3 transition-all duration-300 ${
+                        categoryScore >= 80 ? 'bg-green-500' :
+                        categoryScore >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${categoryScore}%` }}
+                    >
+                      <span className="text-white text-xs font-medium truncate">
+                        {category}
+                      </span>
+                      <span className="text-white text-xs font-bold ml-2">
+                        {categoryScore}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -319,14 +365,12 @@ const DynamicUIComponent = ({ layoutData }) => {
     
     return (
       <div className="space-y-6 p-6">
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-          <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400 text-center">
-            Project Requirement Matches
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 text-center mt-1">
-            {sortedEmployees.length} candidates found, sorted by match score
-          </p>
-        </div>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">
+          Project Requirement Matches
+        </h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          {sortedEmployees.length} candidates found, sorted by match score
+        </p>
         
         <div className="space-y-4">
           {sortedEmployees.map((emp, index) => (
@@ -340,14 +384,12 @@ const DynamicUIComponent = ({ layoutData }) => {
   // Else → use EmployeeCard list for search API results
   return (
     <div className="space-y-6 p-6">
-      <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-        <h2 className="text-xl font-bold text-slate-600 dark:text-slate-400 text-center">
-          Employee Search Results
-        </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 text-center mt-1">
-          {employees.length} employees found
-        </p>
-      </div>
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">
+        Employee Search Results
+      </h2>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        {employees.length} employees found
+      </p>
       
       <div className="space-y-3">
         {employees.map((emp, index) => (
