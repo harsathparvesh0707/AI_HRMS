@@ -39,68 +39,68 @@ const DashboardGrid = ({ onNavigate }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const fileInputRef = useRef(null);
 
-  const handleFileUpload = async (event) => {
-    debugger
-    const file = event.target.files[0];
-    if (file && file.type === 'text/csv') {
-      try {
-        useStore.setState({ 
-          isGenerating: true, 
-          showDynamicUI: true,
-          userQuery: `Uploaded CSV: ${file.name}`
-        });
+  // const handleFileUpload = async (event) => {
+  //   debugger
+  //   const file = event.target.files[0];
+  //   if (file && file.type === 'text/csv') {
+  //     try {
+  //       useStore.setState({ 
+  //         isGenerating: true, 
+  //         showDynamicUI: true,
+  //         userQuery: `Uploaded CSV: ${file.name}`
+  //       });
         
-        const formData = new FormData();
-        formData.append('file', file);
+  //       const formData = new FormData();
+  //       formData.append('file', file);
         
-        const response = await fetch('http://172.25.247.12:8000/upload/hrms-data', {
-          method: 'POST',
-          body: formData,
-        });
+  //       const response = await fetch('http://172.25.247.12:8000/upload/hrms-data', {
+  //         method: 'POST',
+  //         body: formData,
+  //       });
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+  //       if (!response.ok) {
+  //         throw new Error(`HTTP error! status: ${response.status}`);
+  //       }
         
-        const result = await response.json();
+  //       const result = await response.json();
 
+  //       console.log(result);
         
+  //       const layout = {
+  //         layout: {
+  //           type: 'responsive_grid',
+  //           columns: 1,
+  //           gap: '20px',
+  //           components: [
+  //             {
+  //               type: 'data_table',
+  //               title: '',
+  //               dataField: 'apiResponse',
+  //               style: { gridColumn: 'span 1' }
+  //             }
+  //           ]
+  //         }
+  //       };
         
-        const layout = {
-          layout: {
-            type: 'responsive_grid',
-            columns: 1,
-            gap: '20px',
-            components: [
-              {
-                type: 'data_table',
-                title: '',
-                dataField: 'apiResponse',
-                style: { gridColumn: 'span 1' }
-              }
-            ]
-          }
-        };
-        
-        useStore.setState({ 
-          dynamicLayout: layout,
-          dynamicData: { apiResponse: result },
-          dashboardData: { apiResponse: result },
-          isGenerating: false
-        });
-      } catch (error) {
-        console.error('Error uploading CSV:', error);
-        alert('Error uploading CSV file: ' + error.message);
-        useStore.setState({ 
-          isGenerating: false
-        });
-      }
-    } else {
-      alert('Please select a CSV file');
-    }
-    event.target.value = ''; // Reset file input
-  };
-  console.log("grid", dynamicData);
+  //       useStore.setState({ 
+  //         dynamicLayout: layout,
+  //         dynamicData: { apiResponse: result },
+  //         dashboardData: { apiResponse: result },
+  //         isGenerating: false
+  //       });
+  //     } catch (error) {
+  //       console.error('Error uploading CSV:', error);
+  //       alert('Error uploading CSV file: ' + error.message);
+  //       useStore.setState({ 
+  //         isGenerating: false
+  //       });
+  //     }
+  //   } else {
+  //     alert('Please select a CSV file');
+  //   }
+  //   event.target.value = ''; // Reset file input
+  // };
+  // console.log("grid", dynamicData);
 
   const parseCsvFile = (file) => {
     return new Promise((resolve, reject) => {

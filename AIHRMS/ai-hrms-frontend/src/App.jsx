@@ -23,6 +23,13 @@ function App() {
     }
   }, [showDynamicUI]);
 
+
+
+  // Function to handle no data scenario
+  const handleNoDataAvailable = () => {
+    setCurrentPage('upload');
+  };
+
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file && file.type === 'text/csv') {
@@ -46,7 +53,7 @@ function App() {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const response = await fetch('http://172.25.247.12:8000/upload/hrms-data', {
+      const response = await fetch('http://172.25.244.2:8000/upload/hrms-data', {
         method: 'POST',
         body: formData
       });

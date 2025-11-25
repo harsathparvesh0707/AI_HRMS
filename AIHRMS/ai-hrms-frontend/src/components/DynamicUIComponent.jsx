@@ -134,6 +134,8 @@ const EmployeeCard = ({ employee }) => {
 
 // =================== REQUIREMENT CARD COMPONENT ===================
 const RequirementCard = ({ employee }) => {
+  const [isProjectsExpanded, setIsProjectsExpanded] = useState(false);
+  
   if (!employee) return null;
 
   const {
@@ -145,21 +147,20 @@ const RequirementCard = ({ employee }) => {
     tech_group,
     total_exp,
     vvdn_exp,
-    deployment,
-    score,
+    ai_score,
     skill_set,
-    reason
+    ai_reason
   } = employee;
 
   // Get card colors based on score (green to red gradient)
   const getCardColors = () => {
-    if (score >= 70) {
+    if (ai_score >= 70) {
       return {
         border: 'border-green-500',
         bg: 'bg-green-50 dark:bg-green-900/20',
         scoreColor: 'text-green-600 dark:text-green-400'
       };
-    } else if (score >= 50) {
+    } else if (ai_score >= 50) {
       return {
         border: 'border-yellow-500', 
         bg: 'bg-yellow-50 dark:bg-yellow-900/20',
@@ -186,17 +187,6 @@ const RequirementCard = ({ employee }) => {
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                 {display_name}
               </h2>
-              <span
-                className={`px-3 py-1 text-sm font-medium rounded-full ${
-                  deployment?.toLowerCase() === 'billable'
-                    ? 'bg-green-100 text-green-700'
-                    : deployment?.toLowerCase() === 'free'
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-blue-100 text-blue-700'
-                }`}
-              >
-                {deployment || 'N/A'}
-              </span>
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-400">
               {employee_id} • {designation}
@@ -235,11 +225,61 @@ const RequirementCard = ({ employee }) => {
             </div>
           )}
 
-          {reason && (
+          {employee.projects && employee.projects.length > 0 && (
+            <div className="mb-4">
+              <button
+                onClick={() => setIsProjectsExpanded(!isProjectsExpanded)}
+                className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+              >
+                <span>Projects ({employee.projects.length})</span>
+                {isProjectsExpanded ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+              
+              {isProjectsExpanded && (
+                <div className="mt-2 space-y-2">
+                  {employee.projects.map((project, projectIndex) => (
+                    <div key={projectIndex} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <span className="text-blue-600 dark:text-blue-400 font-medium">Project:</span>
+                          <p className="font-semibold text-slate-700 dark:text-slate-300">{project.project_name}</p>
+                        </div>
+                        <div>
+                          <span className="text-blue-600 dark:text-blue-400 font-medium">Customer:</span>
+                          <p className="font-semibold text-slate-700 dark:text-slate-300">{project.customer}</p>
+                        </div>
+                        <div>
+                          <span className="text-blue-600 dark:text-blue-400 font-medium">Role:</span>
+                          <p className="font-semibold text-slate-700 dark:text-slate-300">{project.role}</p>
+                        </div>
+                        <div>
+                          <span className="text-blue-600 dark:text-blue-400 font-medium">Deployment:</span>
+                          {/* <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                            project.project_status === 'Started' ? 'bg-green-100 text-green-700' :
+                            project.project_status === 'Planned' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {project.project_status}
+                          </span> */}
+                          <p className="font-semibold text-slate-700 dark:text-slate-300">{project.deployment}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {ai_reason && (
             <div>
               <span className="text-slate-500 dark:text-slate-400 text-sm">Why this match:</span>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 bg-white/50 dark:bg-slate-800/50 p-3 rounded-lg">
-                {reason}
+                {ai_reason}
               </p>
             </div>
           )}
@@ -261,7 +301,7 @@ const RequirementCard = ({ employee }) => {
                   className={colors.scoreColor.replace('text-', 'text-')}
                   stroke="currentColor"
                   strokeWidth="3"
-                  strokeDasharray={`${score || 0}, 100`}
+                  strokeDasharray={`${ai_score || 0}, 100`}
                   strokeLinecap="round"
                   fill="transparent"
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -269,30 +309,32 @@ const RequirementCard = ({ employee }) => {
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className={`text-lg font-bold ${colors.scoreColor}`}>
-                  {score || 0}%
+                  {ai_score || 0}%
                 </div>
               </div>
             </div>
           </div>
           
-          {employee.category_scores && (
+          {employee.ai_criteria && (
             <div className="space-y-3">
-              {Object.entries(employee.category_scores).map(([category, categoryScore]) => (
-                <div key={category} className="relative">
-                  <div className="bg-slate-200 dark:bg-slate-700 rounded-full h-8 flex items-center">
+              {Object.entries(employee.ai_criteria).map(([criteria, criteriaScore]) => (
+                <div key={criteria}>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                      {criteria}
+                    </span>
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {criteriaScore}%
+                    </span>
+                  </div>
+                  <div className="bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                     <div 
-                      className={`h-8 rounded-full flex items-center justify-between px-3 transition-all duration-300 ${
-                        categoryScore >= 80 ? 'bg-green-500' :
-                        categoryScore >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        criteriaScore >= 80 ? 'bg-green-500' :
+                        criteriaScore >= 60 ? 'bg-yellow-500' : 'bg-red-500'
                       }`}
-                      style={{ width: `${categoryScore}%` }}
+                      style={{ width: `${criteriaScore}%` }}
                     >
-                      <span className="text-white text-xs font-medium truncate">
-                        {category}
-                      </span>
-                      <span className="text-white text-xs font-bold ml-2">
-                        {categoryScore}%
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -319,10 +361,6 @@ const DynamicUIComponent = ({ layoutData }) => {
 
   // Check if this is a project requirement query
   const projectKeywords = [
-    'angular developer',
-    'frontend developer', 
-    'need an angular',
-    'for my project',
     'project requirement'
   ];
   const isProjectQuery = projectKeywords.some(keyword => 
