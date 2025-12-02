@@ -4,28 +4,39 @@ import { useState, useEffect } from 'react';
 
 const ProjectAlert = () => {
   const [isVisible, setIsVisible] = useState(true);
-  const [alert, setAlert] = useState(null);
+  const [currentAlertIndex, setCurrentAlertIndex] = useState(0);
 
+  // Project alerts sorted by days left (ascending)
+  const projectAlerts = [
+    {
+      projectName: 'VVDN_MEXS',
+      daysLeft: 3,
+    },
+    {
+      projectName: 'INSU_PEGS', 
+      daysLeft: 7,
+    },
+    {
+      projectName: 'NTGU_IMDV',
+      daysLeft: 12,
+    }
+  ];
+  // Cycle through alerts every 6 seconds
   useEffect(() => {
-    // Mock alert data - using one of the project names
-    const projectNames = ['VVDN_MEXS', 'INSU_PEGS', 'NTGU_IMDV', 'CRCU_BLUP', 'VIMU_GSUP'];
-    const randomProject = projectNames[Math.floor(Math.random() * projectNames.length)];
-    const randomDays = Math.floor(Math.random() * 15) + 2; // 1-15 days
+    const interval = setInterval(() => {
+      setCurrentAlertIndex((prev) => (prev + 1) % projectAlerts.length);
+    }, 6000);
 
-    setAlert({
-      projectName: randomProject,
-      daysLeft: randomDays,
-      // type: randomDays <= 5 ? 'critical' : randomDays <= 10 ? 'warning' : 'info'
-    });
-  }, []);
+    return () => clearInterval(interval);
+  }, [projectAlerts.length]);
 
   const handleDismiss = () => {
     setIsVisible(false);
   };
 
-  if (!alert || !isVisible) return null;
-
-  const styles = {
+  if (!isVisible) return null;
+  const currentAlert = projectAlerts[currentAlertIndex];
+ const styles = {
     bg: 'bg-blue-500/20',
     border: 'border-blue-300/30',
     icon: 'text-blue-600',
@@ -33,12 +44,13 @@ const ProjectAlert = () => {
   };
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       <motion.div
-        initial={{ opacity: 0, y: -20, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -20, scale: 0.9 }}
-        transition={{ duration: 0.3, type: "spring" }}
+        key={currentAlertIndex}
+        initial={{ opacity: 0, x: 20, scale: 0.95 }}
+        animate={{ opacity: 1, x: 0, scale: 1 }}
+        exit={{ opacity: 0, x: -20, scale: 0.95 }}
+        transition={{ duration: 0.5, ease: "easeInOut" }}
         className={`fixed top-20 right-40 z-40 ${styles.bg} ${styles.border} border backdrop-blur-md rounded-lg shadow-lg max-w-xs`}
       >
         <div className="p-3">
@@ -46,7 +58,7 @@ const ProjectAlert = () => {
             <AlertTriangle className={`w-4 h-4 ${styles.icon}`} />
             <div className="flex-1 min-w-0">
               <div className={`text-xs font-medium ${styles.text}`}>
-                {alert.projectName} ends in {alert.daysLeft} days
+                {currentAlert.projectName} ends in {currentAlert.daysLeft} days
               </div>
             </div>
             <button

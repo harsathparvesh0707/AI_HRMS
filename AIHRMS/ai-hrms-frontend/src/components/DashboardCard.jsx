@@ -75,7 +75,9 @@ const DashboardCard = ({ card }) => {
         return <TrendingUp className="w-4 h-4" />;
       case 'announcements':
         return <Megaphone className="w-4 h-4" />;
-        case 'project-details':
+      case 'project-details':
+        return <BarChart2 className="w-4 h-4" />;
+      case 'project-occupancy':
         return <BarChart2 className="w-4 h-4" />;
       case 'recruitment':
         return <UserCheck className="w-4 h-4" />;
@@ -561,10 +563,14 @@ const DashboardCard = ({ card }) => {
 
       case 'project-details':
         const projectColors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
-        const projectData = card.data.projects.map((project, index) => ({
-          ...project,
-          fill: projectColors[index % projectColors.length]
+        // Generate mock project data
+        const projectNames = ['VVDN_MEXS', 'INSU_PEGS', 'NTGU_IMDV', 'CRCU_BLUP', 'VIMU_GSUP'];
+        const mockProjects = projectNames.map((name, index) => ({
+          projectCode: name,
+          employeesWorking: Math.floor(Math.random() * 40) + 15, // 15-54 employees
+          fill: projectColors[index]
         }));
+        const projectData = mockProjects;
         const totalProjectEmployees = projectData.reduce((sum, p) => sum + p.employeesWorking, 0);
         
         return (
@@ -632,6 +638,120 @@ const DashboardCard = ({ card }) => {
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+        );
+
+      case 'project-occupancy':
+        // Mock data for project occupancy
+        const occupancyProjects = [
+          {
+            name: 'VVDN_MEXS',
+            full: 8,      // 100% occupancy
+            partial: 5,   // 50% occupancy  
+            shadow: 3,    // Shadow resources
+            backup: 2     // Backup resources
+          },
+          {
+            name: 'INSU_PEGS', 
+            full: 12,
+            partial: 4,
+            shadow: 2,
+            backup: 3
+          },
+          {
+            name: 'NTGU_IMDV',
+            full: 6,
+            partial: 8,
+            shadow: 4,
+            backup: 1
+          },
+          {
+            name: 'CRCU_BLUP',
+            full: 10,
+            partial: 3,
+            shadow: 2,
+            backup: 4
+          },
+          {
+            name: 'VIMU_GSUP',
+            full: 7,
+            partial: 6,
+            shadow: 3,
+            backup: 2
+          }
+        ];
+
+        const occupancyHeight = card.size === 'wide' || card.size === 'large' ? 'h-48' : 'h-40';
+        const totalResources = occupancyProjects.reduce((sum, p) => sum + p.full + p.partial + p.shadow + p.backup, 0);
+
+        return (
+          <div className="py-2">
+            <div className="flex items-center justify-between mb-3 px-2">
+              <span className="text-lg font-bold text-slate-900 dark:text-white">
+                {totalResources}
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                Total Resources
+              </span>
+            </div>
+            <div className={`${occupancyHeight}`}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={occupancyProjects} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
+                  <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    stroke="#64748b"
+                    fontSize={8}
+                    tickLine={false}
+                    axisLine={false}
+                    width={70}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1e293b',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#ffffff',
+                      fontSize: '12px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    }}
+                    formatter={(value, name) => {
+                      const labels = {
+                        full: '100% Occupancy',
+                        partial: '50% Occupancy', 
+                        shadow: 'Shadow Resources',
+                        backup: 'Backup Resources'
+                      };
+                      return [value, labels[name] || name];
+                    }}
+                  />
+                  <Bar dataKey="full" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="partial" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="shadow" stackId="a" fill="#8b5cf6" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="backup" stackId="a" fill="#6b7280" radius={[0, 8, 8, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="grid grid-cols-2 gap-1 mt-2 px-2">
+              <div className="flex items-center gap-1 text-xs">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-slate-700 dark:text-slate-300 text-[10px]">100%</span>
+              </div>
+              <div className="flex items-center gap-1 text-xs">
+                <div className="w-2 h-2 rounded-full bg-amber-500" />
+                <span className="text-slate-700 dark:text-slate-300 text-[10px]">50%</span>
+              </div>
+              <div className="flex items-center gap-1 text-xs">
+                <div className="w-2 h-2 rounded-full bg-purple-500" />
+                <span className="text-slate-700 dark:text-slate-300 text-[10px]">Shadow</span>
+              </div>
+              <div className="flex items-center gap-1 text-xs">
+                <div className="w-2 h-2 rounded-full bg-gray-500" />
+                <span className="text-slate-700 dark:text-slate-300 text-[10px]">Backup</span>
+              </div>
             </div>
           </div>
         );
@@ -952,7 +1072,8 @@ const DashboardCard = ({ card }) => {
       {/* Footer */}
       {(card.type === 'attendance' || card.type === 'leave' || card.type === 'recruitment' ||
         card.type === 'payroll' || card.type === 'approvals' || card.type === 'department' ||
-        card.type === 'employee-list' || card.type === 'leave-requests' || card.type === 'performance-list') && (
+        card.type === 'employee-list' || card.type === 'leave-requests' || card.type === 'performance-list' ||
+        card.type === 'project-occupancy') && (
         <div className="px-3 pb-3">
           <button
             className={`w-full py-1.5 px-3 bg-gradient-to-r ${colors.gradient} text-white rounded-lg ${colors.gradientHover} transition-all font-medium text-xs`}

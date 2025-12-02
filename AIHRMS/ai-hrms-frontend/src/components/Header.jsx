@@ -1,4 +1,4 @@
-import { Moon, Sun, Bell, LogOut, BarChart3, Search, X, Clock, TrendingUp, Grid3X3, Home } from 'lucide-react';
+import { Moon, Sun, Bell, LogOut, BarChart3, Search, X, Clock, TrendingUp, Grid3X3, Home, AlertTriangle } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import useStore from '../store/useStore';
 import { motion, AnimatePresence } from 'framer-motion';

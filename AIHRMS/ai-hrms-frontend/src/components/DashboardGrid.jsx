@@ -169,7 +169,7 @@ const DashboardGrid = ({ onNavigate }) => {
   };
 
   // Filter out specific cards (add card IDs you want to hide)
-  const hiddenCardIds = ['attendance', 'leave-balance', 'payroll','pending-approvals','leave-requests','team-members'];
+  const hiddenCardIds = ['attendance', 'leave-balance', 'payroll','pending-approvals','leave-requests','team-members','performance-reviews','project-occupancy'];
   const visibleCards = cards.filter((card) => !hiddenCardIds.includes(card.id));
   
   const pinnedCards = visibleCards.filter((card) => card.pinned);
