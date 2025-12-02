@@ -550,50 +550,6 @@
         showDynamicUI: false,
         userQuery: "",
 
-        // searchAndShowTable: async (query) => {
-        //   set({ isGenerating: true, showDynamicUI: true, userQuery: query });
-        //   try {
-        //     // Use Gemini to generate dynamic UI layout
-        //     const { default: GeminiFormatterSDK } = await import('../services/qwenFormatter');
-        //     const geminiFormatter = new GeminiFormatterSDK();
-        //     const { data, layout } = await geminiFormatter.searchAndGenerateLayout(query);
-
-        //     console.log('Gemini generated layout:', layout);
-        //     console.log('Gemini processed data:', data);
-
-        //     set({
-        //       dynamicLayout: layout,
-        //       dynamicData: data,
-        //       isGenerating: false
-        //     });
-        //   } catch (error) {
-        //     console.error('Search failed:', error);
-        //     // Fallback to simple table layout
-        //     try {
-        //       const results = await searchApi.search(query);
-        //       const layout = {
-        //         layout: {
-        //           type: 'responsive_grid',
-        //           columns: 1,
-        //           components: [{
-        //             type: 'data_table',
-        //             dataField: 'database_results.select_employees_0.data',
-        //             style: { gridColumn: 'span 1' }
-        //           }]
-        //         }
-        //       };
-        //       set({
-        //         dynamicLayout: layout,
-        //         dynamicData: results.data,
-        //         isGenerating: false
-        //       });
-        //     } catch (fallbackError) {
-        //       console.error('Fallback search failed:', fallbackError);
-        //       set({ isGenerating: false });
-        //     }
-        //   }
-        // },
-
         searchAndShowTable: async (query) => {
           set({ isGenerating: true, showDynamicUI: true, userQuery: query });
           
@@ -679,17 +635,13 @@
       }),
       {
         name: "hrms-storage",
-        version: 6, // Increment this to reset localStorage
+        version: 7, // Increment this to reset localStorage
         partialize: (state) => ({
           theme: state.theme,
           colorTheme: state.colorTheme,
           cards: state.cards,
           isAuthenticated: state.isAuthenticated,
           user: state.user,
-          dynamicLayout: state.dynamicLayout,
-          dynamicData: state.dynamicData,
-          showDynamicUI: state.showDynamicUI,
-          userQuery: state.userQuery,
         }),
         migrate: (persistedState, version) => {
           // If version is less than 6, reset the state
