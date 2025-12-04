@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, ChevronDown, ChevronUp } from 'lucide-react';
 import useStore from '../store/useStore';
 
 
 
 // =================== EMPLOYEE CARD COMPONENT ===================
-const EmployeeCard = ({ employee }) => {
+const EmployeeCard = ({ employee, index }) => {
+  const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  const handleCardClick = (e) => {
+    if (e.target.closest('button')) return;
+    navigate(`/employee/${index}`);
+  };
   
   if (!employee) return null;
 
@@ -33,7 +40,10 @@ const EmployeeCard = ({ employee }) => {
   const fullName = display_name || `${first_name || ''} ${last_name || ''}`.trim();
 
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+    <div 
+      onClick={handleCardClick}
+      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+    >
       {/* Main Card Content */}
       <div className="p-4">
         <div className="flex items-center gap-4">
@@ -133,8 +143,14 @@ const EmployeeCard = ({ employee }) => {
 };
 
 // =================== REQUIREMENT CARD COMPONENT ===================
-const RequirementCard = ({ employee }) => {
+const RequirementCard = ({ employee, index }) => {
+  const navigate = useNavigate();
   const [isProjectsExpanded, setIsProjectsExpanded] = useState(false);
+  
+  const handleCardClick = (e) => {
+    if (e.target.closest('button')) return;
+    navigate(`/employee/${index}`);
+  };
   
   if (!employee) return null;
 
@@ -178,7 +194,10 @@ const RequirementCard = ({ employee }) => {
   const colors = getCardColors();
 
   return (
-    <div className={`p-6 ${colors.bg} border-2 ${colors.border} rounded-xl shadow-md hover:shadow-lg transition-all duration-200`}>
+    <div 
+      onClick={handleCardClick}
+      className={`p-6 ${colors.bg} border-2 ${colors.border} rounded-xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer`}
+    >
       <div className="flex items-center justify-between">
         {/* Left Section - Employee Info */}
         <div className="flex-1 pr-6">
@@ -350,7 +369,6 @@ const RequirementCard = ({ employee }) => {
 // =================== MAIN COMPONENT ===================
 const DynamicUIComponent = ({ layoutData }) => {
   const { dynamicData, userQuery } = useStore();
-  
   if (!layoutData || !dynamicData) {
     return (
       <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
@@ -359,32 +377,15 @@ const DynamicUIComponent = ({ layoutData }) => {
     );
   }
 
-  // Check if this is a project requirement query
-  const projectKeywords = [
-    'project requirement'
-  ];
-  const isProjectQuery = projectKeywords.some(keyword => 
-    userQuery?.toLowerCase().includes(keyword.toLowerCase())
-  );
+  // Check if this is a project requirement query from API response
+  const isProjectQuery = dynamicData?.employee_search;
 
   // Extract employees from dynamicData
-  let employees = [];
+  let employees = dynamicData?.data || dynamicData?.database_results?.select_employees_0?.data || [];
   
-  if (dynamicData?.data?.database_results?.select_employees_0?.data) {
-    employees = dynamicData.data.database_results.select_employees_0.data;
-  } else if (dynamicData?.database_results?.select_employees_0?.data) {
-    employees = dynamicData.database_results.select_employees_0.data;
-  } else if (dynamicData?.results?.unified_results) {
-    employees = dynamicData.results.unified_results;
-  } else if (Array.isArray(dynamicData)) {
-    employees = dynamicData;
-  }
-
   if (employees?.rows && Array.isArray(employees.rows)) {
     employees = employees.rows;
   }
-
-  console.log('DynamicUI Debug:', { employees, isProjectQuery, userQuery });
 
   if (!employees || employees.length === 0) {
     return (
@@ -394,11 +395,12 @@ const DynamicUIComponent = ({ layoutData }) => {
     );
   }
 
-  const getFieldLabel = (fieldKey) =>
-    fieldKey.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+  // const getFieldLabel = (fieldKey) =>
+  //   fieldKey.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
   // If project requirement query → use RequirementCard (mock data has scores)
-  if (isProjectQuery && Array.isArray(employees)) {
+  if (isProjectQuery===false && Array.isArray(employees)) {
+    
     const sortedEmployees = [...employees].sort((a, b) => (b.score || 0) - (a.score || 0));
     
     return (
@@ -412,7 +414,7 @@ const DynamicUIComponent = ({ layoutData }) => {
         
         <div className="space-y-4">
           {sortedEmployees.map((emp, index) => (
-            <RequirementCard key={index} employee={emp} />
+            <RequirementCard key={index} employee={emp} index={index} />
           ))}
         </div>
       </div>
@@ -431,7 +433,7 @@ const DynamicUIComponent = ({ layoutData }) => {
       
       <div className="space-y-3">
         {employees.map((emp, index) => (
-          <EmployeeCard key={index} employee={emp} />
+          <EmployeeCard key={index} employee={emp} index={index} />
         ))}
       </div>
     </div>

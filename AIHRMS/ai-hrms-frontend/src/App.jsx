@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { Upload, CheckCircle, X } from "lucide-react";
 import Login from "./components/Login";
 import Header from "./components/Header";
 import DashboardGrid from "./components/DashboardGrid";
 import ProjectAlert from "./components/ProjectAlert";
+import EmployeeDetails from "./components/EmployeeDetails";
 
 import useStore from "./store/useStore";
 import useThemeColors from "./hooks/useThemeColors";
 
-function App() {
+function AppContent() {
   const { theme, isAuthenticated, showDynamicUI, isGenerating } = useStore();
   const colors = useThemeColors();
   const fileInputRef = useRef(null);
@@ -23,6 +25,64 @@ function App() {
       setCurrentPage("dynamicUI");
     }
   }, [showDynamicUI]);
+
+  // Auto-load HRMS data on app startup only if no data exists
+  useEffect(() => {
+    const { dynamicData } = useStore.getState();
+
+    // Only load if no data is already persisted
+    if (
+      !dynamicData ||
+      !dynamicData.database_results?.select_employees_0?.data?.length
+    ) {
+      const loadExistingData = async () => {
+        try {
+          const response = await fetch(
+            "http://172.25.244.2:8000/upload/hrms-data",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ load_existing: true }),
+            }
+          );
+
+          if (response.ok) {
+            const responseData = await response.json();
+            const tableData = responseData.all_employees || [];
+
+            if (tableData.length > 0) {
+              useStore.setState({
+                dynamicLayout: {
+                  layout: {
+                    components: [
+                      {
+                        type: "data_table",
+                        title: `HRMS Data - ${tableData.length} records`,
+                        dataField: "database_results.select_employees_0.data",
+                      },
+                    ],
+                  },
+                },
+                dynamicData: {
+                  database_results: {
+                    select_employees_0: { data: tableData },
+                  },
+                },
+                showDynamicUI: true,
+                userQuery: "Auto-loaded HRMS Data",
+              });
+            }
+          }
+        } catch (error) {
+          console.log("No existing HRMS data found:", error);
+        }
+      };
+
+      loadExistingData();
+    }
+  }, []);
 
   // Function to handle no data scenario
   const handleNoDataAvailable = () => {
@@ -86,7 +146,7 @@ function App() {
           isGenerating: false,
           userQuery: `Uploaded CSV: ${selectedFile.name}`,
         });
-        
+
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
         setCurrentPage("dynamicUI");
@@ -236,6 +296,17 @@ function App() {
         )}
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<AppContent />} />
+        <Route path="/employee/:employeeId" element={<EmployeeDetails />} />
+      </Routes>
+    </Router>
   );
 }
 

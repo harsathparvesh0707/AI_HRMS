@@ -87,16 +87,13 @@ const ChatPanel = () => {
     };
     
     const queryToSend = inputValue;
-    console.log('ChatPanel: Sending message:', queryToSend);
     addMessage(userMessage);
     setInputValue('');
     setTyping(true);
 
     // Generate dynamic UI
     try {
-      console.log('ChatPanel: Calling generateDynamicUI with:', queryToSend);
       await generateDynamicUI(queryToSend);
-      console.log('ChatPanel: generateDynamicUI completed');
       
       // Add dynamic success response based on query
       const getResponseMessage = (query) => {

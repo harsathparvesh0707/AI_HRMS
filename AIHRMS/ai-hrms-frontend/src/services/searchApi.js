@@ -13,7 +13,6 @@ const searchApi = {
     }
     
     const data = await response.json();
-    console.log('SearchAPI: Received response:', data);
     return data;
   }
 };

@@ -554,14 +554,11 @@
           set({ isGenerating: true, showDynamicUI: true, userQuery: query });
           
           try {
-            console.log('Store: Calling search API with query:', query);
             
             // Call search API directly
             const searchResults = await searchApi.search(query);
-            console.log('Store: Search API response:', searchResults);
 
             const isEmployeeSearch = searchResults.employee_search === true;
-            console.log("Store: employee_search flag:", isEmployeeSearch);
             
             // Create layout based on query type
             let layout;
@@ -602,7 +599,7 @@
             // Normalize the search results
             let normalizedData;
             if (searchResults.data) {
-              normalizedData = searchResults.data;
+              normalizedData = searchResults;
             } else {
               // If direct response, wrap it
               normalizedData = {
@@ -614,7 +611,6 @@
               };
             }
             
-            console.log('Store: Normalized data:', normalizedData);
             
             set({
               dynamicLayout: layout,
