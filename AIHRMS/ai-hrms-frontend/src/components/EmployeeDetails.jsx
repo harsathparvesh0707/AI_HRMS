@@ -51,13 +51,13 @@ const EmployeeDetails = () => {
     rm_id,
     total_exp,
     vvdn_exp,
-    deployment,
-    email,
-    phone,
-    date_of_joining,
+    // deployment,
+    // email,
+    // phone,
+    // date_of_joining,
     employee_status,
     skill_set,
-    ai_score,
+    // ai_score,
     ai_reason
   } = employee;
 
@@ -123,14 +123,14 @@ const EmployeeDetails = () => {
                   <span className="text-slate-500 dark:text-slate-400">RM:</span>
                   <span className="ml-2 font-medium text-slate-700 dark:text-slate-300">{rm_name ? `${rm_name} (${rm_id})` : 'N/A'}</span>
                 </div>
-                <div>
+                {/* <div>
                   <span className="text-slate-500 dark:text-slate-400">Email:</span>
                   <span className="ml-2 font-medium text-slate-700 dark:text-slate-300">{email || 'N/A'}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 dark:text-slate-400">Phone:</span>
                   <span className="ml-2 font-medium text-slate-700 dark:text-slate-300">{phone || 'N/A'}</span>
-                </div>
+                </div> */}
                 {/* <div>
                   <span className="text-slate-500 dark:text-slate-400">Status:</span>
                   <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
@@ -149,7 +149,7 @@ const EmployeeDetails = () => {
             {/* Experience */}
             <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-4">
               <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">
-                Experience & Employment
+                Experience
               </h3>
               <div className="flex flex-wrap items-center gap-6 text-sm">
                 <div>
@@ -160,14 +160,14 @@ const EmployeeDetails = () => {
                   <span className="text-slate-500 dark:text-slate-400">VVDN Experience:</span>
                   <span className="ml-2 font-bold text-slate-700 dark:text-slate-300">{vvdn_exp || 'N/A'}</span>
                 </div>
-                <div>
+                {/* <div>
                   <span className="text-slate-500 dark:text-slate-400">Date of Joining:</span>
                   <span className="ml-2 font-medium text-slate-700 dark:text-slate-300">{date_of_joining || 'N/A'}</span>
-                </div>
-                <div>
+                </div> */}
+                {/* <div>
                   <span className="text-slate-500 dark:text-slate-400">Deployment:</span>
                   <span className="ml-2 font-medium text-slate-700 dark:text-slate-300">{deployment || 'N/A'}</span>
-                </div>
+                </div> */}
               </div>
             </div>
 
@@ -186,7 +186,7 @@ const EmployeeDetails = () => {
                       {skill.trim()}
                     </span>
                   ))}
-                </div>
+                </div>  
               </div>
             )}
 

@@ -8,10 +8,8 @@ import useStore from '../store/useStore';
 // =================== EMPLOYEE CARD COMPONENT ===================
 const EmployeeCard = ({ employee, index }) => {
   const navigate = useNavigate();
-  const [isExpanded, setIsExpanded] = useState(false);
   
-  const handleCardClick = (e) => {
-    if (e.target.closest('button')) return;
+  const handleCardClick = () => {
     navigate(`/employee/${index}`);
   };
   
@@ -24,17 +22,7 @@ const EmployeeCard = ({ employee, index }) => {
     last_name,
     designation,
     tech_group,
-    emp_location,
-    rm_name,
-    rm_id,
-    employee_department,
-    total_exp,
-    vvdn_exp,
-    deployment,
-    email,
-    phone,
-    date_of_joining,
-    employee_status
+    emp_location
   } = employee;
 
   const fullName = display_name || `${first_name || ''} ${last_name || ''}`.trim();
@@ -42,102 +30,33 @@ const EmployeeCard = ({ employee, index }) => {
   return (
     <div 
       onClick={handleCardClick}
-      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer p-4"
     >
-      {/* Main Card Content */}
-      <div className="p-4">
-        <div className="flex items-center gap-4">
-          {/* User Icon */}
-          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-            <User className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+          <User className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+        </div>
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-1">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
+              {fullName}
+            </h3>
+            <span className="text-sm text-slate-500 dark:text-slate-400">•</span>
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+              {employee_id}
+            </span>
           </div>
           
-          {/* Employee Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-1">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
-                {fullName}
-              </h3>
-              <span className="text-sm text-slate-500 dark:text-slate-400">•</span>
-              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                {employee_id}
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-              <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-medium">Designation:</span> {designation || 'N/A'}
-              </p>
-              <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-medium">Tech Group:</span> {tech_group || 'N/A'}
-              </p>
-              <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-medium">Location:</span> {emp_location || 'N/A'}
-              </p>
-              <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-medium">RM:</span> {rm_name ? `${rm_name} (${rm_id})` : 'N/A'}
-              </p>
-            </div>
+          <div className="flex flex-wrap gap-4 text-sm text-slate-600 dark:text-slate-400">
+            <span>{designation || 'N/A'}</span>
+            <span>•</span>
+            <span>{tech_group || 'N/A'}</span>
+            <span>•</span>
+            <span>{emp_location || 'N/A'}</span>
           </div>
-          
-          {/* Expand Button */}
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-          >
-            {isExpanded ? (
-              <ChevronUp className="w-5 h-5 text-slate-500" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-slate-500" />
-            )}
-          </button>
         </div>
       </div>
-      
-      {/* Accordion Content */}
-      {isExpanded && (
-        <div className="border-t border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-800/50">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-2">Contact Information</h4>
-              <p className="text-slate-600 dark:text-slate-400 mb-1">
-                <span className="font-medium">Email:</span> {email || 'N/A'}
-              </p>
-              <p className="text-slate-600 dark:text-slate-400 mb-1">
-                <span className="font-medium">Phone:</span> {phone || 'N/A'}
-              </p>
-              <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-medium">Department:</span> {employee_department || 'N/A'}
-              </p>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-2">Employment Details</h4>
-              <p className="text-slate-600 dark:text-slate-400 mb-1">
-                <span className="font-medium">Join Date:</span> {date_of_joining || 'N/A'}
-              </p>
-              <p className="text-slate-600 dark:text-slate-400 mb-1">
-                <span className="font-medium">Total Experience:</span> {total_exp || 'N/A'}
-              </p>
-              <p className="text-slate-600 dark:text-slate-400 mb-1">
-                <span className="font-medium">VVDN Experience:</span> {vvdn_exp || 'N/A'}
-              </p>
-              <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-medium">Status:</span> 
-                <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  employee_status?.toLowerCase() === 'active' || deployment?.toLowerCase() === 'billable'
-                    ? 'bg-green-100 text-green-700'
-                    : employee_status?.toLowerCase() === 'inactive' || deployment?.toLowerCase() === 'free'
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-blue-100 text-blue-700'
-                }`}>
-                  {employee_status || deployment || 'N/A'}
-                </span>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

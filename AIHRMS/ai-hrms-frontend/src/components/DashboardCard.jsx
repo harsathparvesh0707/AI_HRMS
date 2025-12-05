@@ -44,10 +44,10 @@ import {
 } from 'recharts';
 
 const DashboardCard = ({ card }) => {
-  const { togglePin, removeCard, dynamicData, dashboardData} = useStore();
+  const { togglePin, removeCard, dynamicData, uploadedData} = useStore();
   
-  // Always use dashboardData for dashboard cards if available, fallback to dynamicData
-  const cardData = dashboardData || dynamicData;
+  // Use uploadedData for dashboard cards if available, fallback to dynamicData
+  const cardData = uploadedData || dynamicData;
   const colors = useThemeColors();
 
   const {
@@ -447,12 +447,12 @@ const DashboardCard = ({ card }) => {
       case 'department':
         const deptHeight = card.size === 'wide' || card.size === 'large' ? 'h-48' : 'h-40';
         
-        // Generate department data from dynamicData if available
+        // Generate department data from uploaded data if available
         let departmentData = card.data.departments;
         let totalStaff = card.data.total;
         
-        if (dynamicData?.database_results?.select_employees_0?.data) {
-          const employees = dynamicData.database_results.select_employees_0.data;
+        if (cardData?.database_results?.select_employees_0?.data) {
+          const employees = cardData.database_results.select_employees_0.data;
           const departmentCounts = {};
           
           employees.forEach(emp => {
@@ -757,7 +757,7 @@ const DashboardCard = ({ card }) => {
         );
 
       case 'stats':
-        // Get dynamic data if available
+        // Get uploaded data if available, fallback to dynamic data
         const employees = cardData?.database_results?.select_employees_0?.data || [];
         const totalEmployees = employees.length || card.data.metrics[0].value;
         const freepoolCount = employees.filter(emp => emp.is_free_pool === true).length;
@@ -829,7 +829,7 @@ const DashboardCard = ({ card }) => {
         );
 
       case 'employee-list':
-        // Get random employees from dynamic data if available
+        // Get random employees from uploaded data if available
         const allEmployees = cardData?.database_results?.select_employees_0?.data || [];
         const shuffledEmployees = allEmployees.sort(() => 0.5 - Math.random()).slice(0, 6);
         const displayEmployees = shuffledEmployees.length > 0 ? shuffledEmployees : card.data.employees.slice(0, 6);

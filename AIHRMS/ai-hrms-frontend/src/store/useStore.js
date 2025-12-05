@@ -549,12 +549,14 @@
         isGenerating: false,
         showDynamicUI: false,
         userQuery: "",
+        
+        // Separate storage for uploaded CSV data
+        uploadedData: null,
 
         searchAndShowTable: async (query) => {
           set({ isGenerating: true, showDynamicUI: true, userQuery: query });
           
           try {
-            
             // Call search API directly
             const searchResults = await searchApi.search(query);
 
@@ -611,7 +613,6 @@
               };
             }
             
-            
             set({
               dynamicLayout: layout,
               dynamicData: normalizedData,
@@ -622,6 +623,9 @@
             set({ isGenerating: false });
           }
         },
+        
+        // Method to set uploaded CSV data (separate from search results)
+        setUploadedData: (data) => set({ uploadedData: data }),
         
         hideDynamicUI: () => set({ 
           showDynamicUI: false, 
@@ -638,6 +642,11 @@
           cards: state.cards,
           isAuthenticated: state.isAuthenticated,
           user: state.user,
+          dynamicLayout: state.dynamicLayout,     
+          dynamicData: state.dynamicData,         
+          showDynamicUI: state.showDynamicUI,     
+          userQuery: state.userQuery,
+          uploadedData: state.uploadedData, 
         }),
         migrate: (persistedState, version) => {
           // If version is less than 6, reset the state

@@ -1,11 +1,13 @@
 import { Moon, Sun, Bell, LogOut, BarChart3, Search, X, Clock, TrendingUp, Grid3X3, Home, AlertTriangle } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeSelector from './ThemeSelector';
 import useThemeColors from '../hooks/useThemeColors';
 
 const Header = ({ onNavigate, currentPage }) => {
+  const navigate = useNavigate();
   const { theme, toggleTheme, user, logout, searchAndShowTable, isGenerating, showDynamicUI, hideDynamicUI } = useStore();
   const colors = useThemeColors();
   const [searchQuery, setSearchQuery] = useState('');
@@ -14,6 +16,9 @@ const Header = ({ onNavigate, currentPage }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef(null);
   const suggestionsRef = useRef(null);
+
+  // Project alerts count
+  const alertsCount = 3;
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -214,11 +219,14 @@ const Header = ({ onNavigate, currentPage }) => {
 
           {/* Notifications */}
           <button
+            onClick={() => navigate('/notifications')}
             className="relative p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             aria-label="Notifications"
           >
             <Bell className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-            <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+            {alertsCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+            )}
           </button>
 
           {/* User Profile */}
