@@ -8,9 +8,10 @@ import useStore from '../store/useStore';
 // =================== EMPLOYEE CARD COMPONENT ===================
 const EmployeeCard = ({ employee, index }) => {
   const navigate = useNavigate();
+  const [showPopup, setShowPopup] = useState(false);
   
   const handleCardClick = () => {
-    navigate(`/employee/${index}`);
+    navigate(`/employee/${encodeURIComponent(employee.employee_id)}`);
   };
   
   if (!employee) return null;
@@ -22,41 +23,149 @@ const EmployeeCard = ({ employee, index }) => {
     last_name,
     designation,
     tech_group,
-    emp_location
+    emp_location,
+    employee_department,
+    total_exp,
+    vvdn_exp,
+    skill_set,
+    rm_name,
+    rm_id,
+    projects
   } = employee;
 
   const fullName = display_name || `${first_name || ''} ${last_name || ''}`.trim();
 
   return (
     <div 
-      onClick={handleCardClick}
-      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer p-4"
+      className="relative"
+      onMouseEnter={() => setShowPopup(true)}
+      onMouseLeave={() => setShowPopup(false)}
     >
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-          <User className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-        </div>
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-1">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
-              {fullName}
-            </h3>
-            <span className="text-sm text-slate-500 dark:text-slate-400">•</span>
-            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-              {employee_id}
-            </span>
+      <div 
+        onClick={handleCardClick}
+        className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer p-6"
+      >
+        <div className="flex items-center gap-8 ml-5">
+          <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+            <User className="w-9 h-9 text-blue-600 dark:text-blue-400" />
           </div>
           
-          <div className="flex flex-wrap gap-4 text-sm text-slate-600 dark:text-slate-400">
-            <span>{designation || 'N/A'}</span>
-            <span>•</span>
-            <span>{tech_group || 'N/A'}</span>
-            <span>•</span>
-            <span>{emp_location || 'N/A'}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-4 mb-1">
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white truncate">
+                {fullName}
+              </h3>
+              <span className="text-sm text-slate-500 dark:text-slate-400">•</span>
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                {employee_id}
+              </span>
+            </div>
+            
+            <div className="flex flex-wrap gap-4 text-sm text-slate-600 dark:text-slate-400">
+              <span>{designation || 'N/A'}</span>
+              <span>•</span>
+              <span>{tech_group || 'N/A'}</span>
+              <span>•</span>
+              <span>{emp_location || 'N/A'}</span>
+            </div>
           </div>
         </div>
       </div>
+      
+      {/* Hover Popup */}
+      {showPopup && (
+        <div 
+          onClick={handleCardClick}
+          className="absolute -top-3/4 right-10 z-50 w-1/2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-xl p-4 cursor-pointer"
+        >
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 pb-2 border-b border-slate-200 dark:border-slate-700">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                <User className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-slate-900 dark:text-white">{fullName}</h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{employee_id}</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-slate-500 dark:text-slate-400">Designation:</span>
+                <p className="font-medium text-slate-700 dark:text-slate-300">{designation || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-slate-500 dark:text-slate-400">Department:</span>
+                <p className="font-medium text-slate-700 dark:text-slate-300">{employee_department || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-slate-500 dark:text-slate-400">Tech Group:</span>
+                <p className="font-medium text-slate-700 dark:text-slate-300">{tech_group || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-slate-500 dark:text-slate-400">Location:</span>
+                <p className="font-medium text-slate-700 dark:text-slate-300">{emp_location || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-slate-500 dark:text-slate-400">Total Exp:</span>
+                <p className="font-medium text-slate-700 dark:text-slate-300">{total_exp || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-slate-500 dark:text-slate-400">VVDN Exp:</span>
+                <p className="font-medium text-slate-700 dark:text-slate-300">{vvdn_exp || 'N/A'}</p>
+              </div>
+            </div>
+            
+            {rm_name && (
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 text-sm">Reporting Manager:</span>
+                <p className="font-medium text-slate-700 dark:text-slate-300">{rm_name} ({rm_id})</p>
+              </div>
+            )}
+            
+            {skill_set && (
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 text-sm">Skills:</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {skill_set.split(',').slice(0, 6).map((skill, skillIndex) => (
+                    <span key={skillIndex} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-full">
+                      {skill.trim()}
+                    </span>
+                  ))}
+                  {skill_set.split(',').length > 6 && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400">+{skill_set.split(',').length - 6} more</span>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* {employee.projects && employee.projects.length > 0 && (
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 text-sm">Projects:</span>
+                <div className="mt-1 space-y-2">
+                  {employee.projects.slice(0, 2).map((project, projectIndex) => (
+                    <div key={projectIndex} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded p-2">
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-blue-600 dark:text-blue-400 font-medium">Project:</span>
+                          <p className="font-semibold text-slate-700 dark:text-slate-300">{project.project_name}</p>
+                        </div>
+                        <div>
+                          <span className="text-blue-600 dark:text-blue-400 font-medium">Role:</span>
+                          <p className="font-semibold text-slate-700 dark:text-slate-300">{project.role}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {employee.projects.length > 2 && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400">+{employee.projects.length - 2} more projects</span>
+                  )}
+                </div>
+              </div>;l
+            )} */}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -68,7 +177,7 @@ const RequirementCard = ({ employee, index }) => {
   
   const handleCardClick = (e) => {
     if (e.target.closest('button')) return;
-    navigate(`/employee/${index}`);
+    navigate(`/employee/${encodeURIComponent(employee.employee_id)}`);
   };
   
   if (!employee) return null;

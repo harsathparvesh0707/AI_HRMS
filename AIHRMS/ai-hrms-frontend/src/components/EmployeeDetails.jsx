@@ -1,13 +1,27 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, ChevronDown, ChevronUp, User } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useStore from '../store/useStore';
 
 const EmployeeDetails = () => {
-  const { employeeId } = useParams();
+  // const { employeeId } = useParams();
+  const { employeeId: rawId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { dynamicData } = useStore();
   const [isProjectsExpanded, setIsProjectsExpanded] = useState(true);
+  const [navigationHistory, setNavigationHistory] = useState([]);
+
+  const employeeId = decodeURIComponent(rawId); 
+
+  // Initialize navigation history from location state or create new
+  useEffect(() => {
+    if (location.state?.history) {
+      setNavigationHistory(location.state.history);
+    } else {
+      setNavigationHistory([{ id: employeeId, name: null }]);
+    }
+  }, [employeeId, location.state]);
 
   // Extract employees from dynamicData
   let employees = dynamicData?.data || dynamicData?.database_results?.select_employees_0?.data || [];
@@ -16,8 +30,18 @@ const EmployeeDetails = () => {
     employees = employees.rows;
   }
 
-  // Find the specific employee
-  const employee = employees.find((emp, index) => index.toString() === employeeId);
+  // Find the specific employee by ID or index
+  // const employee = employees.find((emp, index) => 
+  //   emp.employee_id === employeeId || index.toString() === employeeId
+  // );
+
+  const employee = employees.find((emp, index) => {
+  return (
+    emp.employee_id?.trim() === employeeId?.trim() ||
+    index.toString() === employeeId
+  );
+});
+
 
   if (!employee) {
     return (
@@ -63,25 +87,42 @@ const EmployeeDetails = () => {
 
   const fullName = display_name || `${first_name || ''} ${last_name || ''}`.trim();
 
+  // Handle RM click - navigate to RM's details
+  const handleRMClick = (rmId, rmName) => {
+    const rmEmployee = employees.find(emp => emp.employee_id === rmId);
+    if (rmEmployee) {
+      const newHistory = [...navigationHistory, { id: employeeId, name: fullName }];
+      navigate(`/employee/${encodeURIComponent(rmId)}`, { state: { history: newHistory } });
+    }
+    
+  };
+
+  // Handle back navigation
+  const handleBack = () => {
+    if (navigationHistory.length > 1) {
+      const previousEmployee = navigationHistory[navigationHistory.length - 2];
+      const newHistory = navigationHistory.slice(0, -1);
+      navigate(`/employee/${encodeURIComponent(previousEmployee.id)}`, { state: { history: newHistory } });
+      console.log("qwertyu",newHistory)
+    } else {
+      navigate(-1);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Results
-          </button>
-          {/* <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">
-            Employee Details
-          </h1> */}
-        </div>
+        {/* <button
+          onClick={handleBack}
+          className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-6"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Back
+        </button> */}
 
         {/* Main Content */}
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 h-[calc(100vh-100px)] overflow-y-auto">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl mt-6 p-4 h-[calc(100vh-100px)] overflow-y-auto">
           <div className="space-y-4">
             
             {/* Employee Profile */}
@@ -121,7 +162,16 @@ const EmployeeDetails = () => {
                 </div>
                 <div>
                   <span className="text-slate-500 dark:text-slate-400">RM:</span>
-                  <span className="ml-2 font-medium text-slate-700 dark:text-slate-300">{rm_name ? `${rm_name} (${rm_id})` : 'N/A'}</span>
+                  {rm_id ? (
+                    <button
+                      onClick={() => handleRMClick(rm_id, rm_name)}
+                      className="ml-2 font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      {rm_name} ({rm_id})
+                    </button>
+                  ) : (
+                    <span className="ml-2 font-medium text-slate-700 dark:text-slate-300">N/A</span>
+                  )}
                 </div>
                 {/* <div>
                   <span className="text-slate-500 dark:text-slate-400">Email:</span>
