@@ -454,6 +454,8 @@ const DashboardCard = ({ card }) => {
         if (cardData?.database_results?.select_employees_0?.data) {
           const employees = cardData.database_results.select_employees_0.data;
           const departmentCounts = {};
+          console.log(employees);
+          
           
           employees.forEach(emp => {
             const dept = emp.employee_department || 'Unknown';

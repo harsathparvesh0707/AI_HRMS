@@ -7,7 +7,6 @@ import DashboardGrid from "./components/DashboardGrid";
 import ProjectAlert from "./components/ProjectAlert";
 import EmployeeDetails from "./components/EmployeeDetails";
 import NotificationsPage from "./components/NotificationsPage";
-
 import useStore from "./store/useStore";
 import useThemeColors from "./hooks/useThemeColors";
 
@@ -54,7 +53,7 @@ function AppContent() {
       formData.append("file", selectedFile);
 
       const response = await fetch(
-        "http://172.25.244.2:8000/upload/hrms-data",
+        "http://localhost:8000/upload/hrms-data",
         {
           method: "POST",
           body: formData,
