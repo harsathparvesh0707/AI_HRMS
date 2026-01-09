@@ -1,0 +1,67 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug AI HRMS Server",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "DEBUG": "true"
+            },
+            "args": [],
+            "justMyCode": false,
+            "stopOnEntry": false,
+            "autoReload": {
+                "enable": true
+            }
+        },
+        {
+            "name": "Debug Main Module",
+            "type": "python",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "main:app",
+                "--host", "0.0.0.0",
+                "--port", "8000",
+                "--reload",
+                "--log-level", "debug"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "DEBUG": "true"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "Debug Search Service",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/test_search.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "Debug Hybrid Search",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/test_hybrid.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false
+        }
+    ]
+}

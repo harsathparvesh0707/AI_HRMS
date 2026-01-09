@@ -1,0 +1,503 @@
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
+from typing import Dict, Any
+import logging
+from ..services.ai_search_service import AISearchService
+
+logger = logging.getLogger(__name__)
+from ..services.upload_service import UploadService
+from ..services.embedding_cache_service import EmbeddingCacheService
+from ..models.schemas import (ChatRequest, ChatResponse, UploadResponse, QueryRequest, QueryResponse,
+                            SkillsUpdateRequest, ProjectsUpdateRequest, ProfileUpdateRequest, EmployeeResponse, ProjectsListResponse)
+from .endpoints import health
+
+api_router = APIRouter()
+
+# Include endpoint routers
+api_router.include_router(health.router, tags=["health"])
+
+search_service = AISearchService()
+upload_service = UploadService()
+cache_service = EmbeddingCacheService()
+
+
+@api_router.post("/search", response_model=ChatResponse, tags=["search"])
+async def search_employees(request: ChatRequest) -> ChatResponse:
+    """Employee search"""
+    result = await search_service.process_query(
+        query=request.query,
+        top_k=request.top_k,
+        search_type=request.search_type or "combined"
+    )
+    return result
+
+@api_router.post("/search-result", tags=["search"])
+async def search_results_only(request: ChatRequest) -> Dict[str, Any]:
+    """Search without ranking - for optimization"""
+    logger.info(f"🔍 /search-result API called with query: '{request.query}'")
+    print(f"🔍 /search-result API called with query: '{request.query}'")
+    
+    result = await search_service.process_search_only(
+        query=request.query,
+        top_k=request.top_k
+    )
+    
+    logger.info(f"✅ /search-result completed: {result.get('total_results', 0)} results")
+    print(f"✅ /search-result completed: {result.get('total_results', 0)} results")
+    return result
+
+
+@api_router.post("/search-rank", tags=["search"])
+async def search_results_only(request: ChatRequest) -> Dict[str, Any]:
+    """Search without ranking - for optimization"""
+    logger.info(f"🔍 /search-result API called with query: '{request.query}'")
+    print(f"🔍 /search-result API called with query: '{request.query}'")
+    
+    result = await search_service.process_search_and_rank_with_criteria_simplified_new_llm_semantic(
+        query=request.query,
+        top_k=request.top_k
+    )
+    
+    logger.info(f"✅ /search-rank completed: {result.get('total_results', 0)} results")
+    print(f"✅ /search-rank completed: {result.get('total_results', 0)} results")
+    return result
+
+@api_router.post("/search-rank-simplified", tags=["search"])
+async def search_results_simplified(request: ChatRequest) -> Dict[str, Any]:
+    """Search with simplified parsing - uses general tech categories instead of specific ones"""
+    logger.info(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
+    print(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
+    
+    result = await search_service.process_search_and_rank_with_criteria_simplified_new(
+        query=request.query,
+        top_k=request.top_k
+    )
+    
+    logger.info(f"✅ /search-rank-simplified completed: {result.get('total_results', 0)} results")
+    print(f"✅ /search-rank-simplified completed: {result.get('total_results', 0)} results")
+    return result
+
+
+@api_router.post("/search-rank-simplified-new", tags=["search"])
+async def search_results_simplified_new(request: ChatRequest) -> Dict[str, Any]:
+    """Search with simplified parsing - uses general tech categories instead of specific ones"""
+    logger.info(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
+    print(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
+    
+    result = await search_service.process_search_and_rank_with_criteria_simplified_new_llm(
+        query=request.query,
+        top_k=request.top_k
+    )
+    
+    logger.info(f"✅ /search-rank-simplified completed: {result.get('total_results', 0)} results")
+    print(f"✅ /search-rank-simplified completed: {result.get('total_results', 0)} results")
+    return result
+
+@api_router.post("/search-rank-simplified-semantic", tags=["search"])
+async def search_results_simplified_new(request: ChatRequest) -> Dict[str, Any]:
+    """Search with simplified parsing - uses general tech categories instead of specific ones"""
+    logger.info(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
+    print(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
+    
+    result = await search_service.process_search_and_rank_with_criteria_simplified_new_llm_semantic(
+        query=request.query,
+        top_k=request.top_k
+    )
+    
+    logger.info(f"✅ /search-rank-simplified completed: {result.get('total_results', 0)} results")
+    print(f"✅ /search-rank-simplified completed: {result.get('total_results', 0)} results")
+    return result
+
+
+@api_router.post("/query", response_model=QueryResponse, tags=["search"])
+async def advanced_query(request: QueryRequest) -> QueryResponse:
+    """🔍 Advanced employee query with performance monitoring"""
+    try:
+        result = await search_service.process_advanced_query(request)     
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/upload/hrms-data", response_model=UploadResponse, tags=["upload"])
+async def upload_hrms_data(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    description: str = Form("")
+) -> UploadResponse:
+    """File Upload Endpoint"""
+    # Process file upload
+    result = await upload_service.process_file_upload(file, description)
+    
+    # Trigger cache rebuild in background for search optimization
+    background_tasks.add_task(_post_upload_cache_rebuild)
+    
+    return result
+
+@api_router.get("/stats", tags=["analytics"])
+async def get_system_stats() -> Dict[str, Any]:
+    """Get system statistics"""
+    stats = await search_service.get_system_statistics()
+    
+    # No background tasks for direct service usage
+    stats['background_tasks'] = {
+        'active': 0,
+        'completed': 0,
+        'failed': 0,
+        'total': 0
+    }
+    
+    return {"status": "success", "statistics": stats}
+
+@api_router.post("/init-database", tags=["admin"])
+async def initialize_database() -> Dict[str, Any]:
+    """Initialize database tables and performance indexes"""
+    try:
+        # Initialize database tables and indexes (handled in database.py)
+        result = await upload_service.initialize_database()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/debug-data", tags=["debug"])
+async def debug_data() -> Dict[str, Any]:
+    """Debug endpoint"""
+    return await search_service.get_debug_data()
+
+@api_router.post("/index-employees", tags=["admin"])
+async def index_employees(background_tasks: BackgroundTasks) -> Dict[str, Any]:
+    """Index employees - Non-blocking background processing"""
+    try:
+        background_tasks.add_task(_index_employees_background)
+        background_tasks.add_task(_precompute_embeddings_background)
+        
+        return {
+            "status": "accepted",
+            "message": "Employee indexing and cache rebuild started in background",
+            "estimated_time": "2-5 minutes"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def _index_employees_background():
+    """Background task for heavy indexing operations"""
+    try:
+        search_svc = search_service
+        if hasattr(search_svc, 'hybrid_engine') and search_svc.hybrid_engine and search_svc.hybrid_engine.available:
+            await search_svc.hybrid_engine.index_employees()
+        logger.info("✅ Background indexing completed")
+    except Exception as e:
+        logger.error(f"❌ Background indexing failed: {e}")
+
+async def _post_upload_cache_rebuild():
+    """Background cache rebuild after file upload - clears ALL caches"""
+    try:
+        # Use unified cache rebuild method
+        embedding_service = EmbeddingCacheService()
+        if embedding_service.available:
+            # Clear existing caches first
+            await embedding_service.invalidate_employee_cache()
+            embedding_service.clear_query_cache()
+            
+            # Rebuild all caches using unified method
+            result = await embedding_service.rebuild_all_caches()
+            if result.get('status') == 'success':
+                logger.info(f"✅ Post-upload unified cache rebuild completed: {result.get('employees_processed', 0)} employees")
+            else:
+                logger.warning(f"⚠️ Post-upload cache rebuild had issues: {result.get('message', 'Unknown error')}")
+        else:
+            logger.warning("⚠️ Embedding service not available for cache rebuild")
+        
+    except Exception as e:
+        logger.error(f"❌ Post-upload cache rebuild failed: {e}")
+
+async def _precompute_embeddings_background():
+    """Background task for unified embedding precomputation"""
+    try:
+        embedding_service = EmbeddingCacheService()
+        if embedding_service.available:
+            result = await embedding_service.rebuild_all_caches()
+            if result.get('status') == 'success':
+                logger.info(f"✅ Unified embedding precomputation completed: {result.get('employees_processed', 0)} employees")
+            else:
+                logger.warning(f"⚠️ Embedding precomputation had issues: {result.get('message', 'Unknown error')}")
+        else:
+            logger.warning("⚠️ Embedding service not available")
+    except Exception as e:
+        logger.error(f"❌ Embedding precomputation failed: {e}")
+
+@api_router.post("/precompute-embeddings", tags=["performance"])
+async def precompute_embeddings(background_tasks: BackgroundTasks) -> Dict[str, Any]:
+    """🚀 Pre-compute embeddings - Non-blocking background processing"""
+    try:
+        background_tasks.add_task(_precompute_embeddings_background)
+        
+        return {
+            "status": "accepted",
+            "message": "Unified embedding precomputation started in background",
+            "estimated_time": "1-3 minutes"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/cache-stats", tags=["performance"])
+async def get_cache_stats() -> Dict[str, Any]:
+    """Get cache stats"""
+    try:
+        stats = {}
+        
+        # Embedding cache stats
+        embedding_service = EmbeddingCacheService()
+        if embedding_service.available:
+            stats["embedding_cache"] = embedding_service.get_cache_stats()
+        
+        # Skill embeddings cache stats
+        if hasattr(search_service, 'hybrid_engine') and search_service.hybrid_engine:
+            stats["skill_embeddings"] = {
+                "initialized": search_service.hybrid_engine.skill_embeddings_initialized,
+                "cached_skills": len(search_service.hybrid_engine.skill_embeddings)
+            }
+        
+        return {"status": "success", "cache_stats": stats}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@api_router.delete("/clear-cache", tags=["performance"])
+async def clear_all_caches() -> Dict[str, Any]:
+    """Clear ALL caches - embeddings, queries, and skill mappings"""
+    embedding_service = EmbeddingCacheService()
+    if embedding_service.available:
+        # Clear employee embeddings
+        await embedding_service.invalidate_employee_cache()
+        
+        # Clear query cache (embeddings + parsed queries)
+        query_result = embedding_service.clear_query_cache()
+        
+        # Clear skill embeddings cache
+        if hasattr(search_service, 'hybrid_engine') and search_service.hybrid_engine:
+            search_service.hybrid_engine.skill_embeddings = {}
+            search_service.hybrid_engine.skill_embeddings_initialized = False
+        
+        return {
+            "status": "success", 
+            "message": "All caches cleared",
+            "query_cache": query_result
+        }
+    return {"status": "unavailable", "message": "Cache service not available"}
+
+@api_router.post("/rebuild-compression-cache", tags=["performance"])
+async def rebuild_compression_cache(background_tasks: BackgroundTasks) -> Dict[str, Any]:
+    """Rebuild compression cache"""
+    try:
+        from ..services.compression_service import compression_service
+        
+        background_tasks.add_task(_rebuild_compression_background, compression_service)
+        
+        return {
+            "status": "accepted",
+            "message": "Compression cache rebuild started in background",
+            "estimated_time": "1-2 minutes"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/compression-stats", tags=["performance"])
+async def get_compression_stats() -> Dict[str, Any]:
+    """Get compression cache stats"""
+    try:
+        from ..services.compression_service import compression_service
+        from ..services.cache_manager import cache_manager
+        
+        # Get basic cache stats
+        cache_stats = cache_manager.get_stats()
+        
+        # Get compression-specific stats
+        comp_ids = await cache_manager.get("comp:ids")
+        if comp_ids and isinstance(comp_ids, (set, list)):
+            sample_data = await compression_service.get_compressed_batch(list(comp_ids)[:3])
+            compressed_count = len(comp_ids)
+        else:
+            sample_data = []
+            compressed_count = 0
+        
+        stats = {
+            "cache_type": cache_stats.get("selected_type", "unknown"),
+            "compressed_employees": compressed_count,
+            "sample_compressed": [item.get("compact", "") for item in sample_data],
+            "cache_available": cache_manager.is_available()
+        }
+        
+        return {"status": "success", "compression_stats": stats}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@api_router.get("/cache-info", tags=["performance"])
+async def get_cache_info() -> Dict[str, Any]:
+    """Get detailed cache system information"""
+    try:
+        from ..services.cache_manager import cache_manager
+        cache_stats = cache_manager.get_stats()
+        return {"status": "success", "cache_info": cache_stats}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@api_router.post("/switch-cache", tags=["admin"])
+async def switch_cache_type(cache_type: str) -> Dict[str, Any]:
+    """Switch cache type (redis/memory) - for testing purposes"""
+    try:
+        from ..services.cache_manager import cache_manager
+        
+        if cache_type not in ["redis", "memory"]:
+            raise HTTPException(status_code=400, detail="Invalid cache type. Use 'redis' or 'memory'")
+        
+        # This would require reinitialization - for now just return current status
+        current_stats = cache_manager.get_stats()
+        return {
+            "status": "info",
+            "message": f"Current cache type: {current_stats.get('selected_type', 'unknown')}",
+            "note": "Cache type switching requires application restart"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+async def _rebuild_compression_background(compression_service):
+    """Background task for compression cache rebuild"""
+    try:
+        count = await compression_service.rebuild_cache()
+        logger.info(f"✅ Compression cache rebuilt: {count} employees")
+    except Exception as e:
+        logger.error(f"❌ Compression cache rebuild failed: {e}")
+
+@api_router.get("/system-health", tags=["monitoring"])
+async def get_system_health() -> Dict[str, Any]:
+    """Get system health status"""
+    try:
+        from ..services.monitoring_service import MonitoringService
+        monitoring = MonitoringService()
+        return monitoring.get_system_health()
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@api_router.get("/performance-metrics", tags=["monitoring"])
+async def get_performance_metrics() -> Dict[str, Any]:
+    """Get detailed performance metrics"""
+    try:
+        stats = await search_service.get_system_statistics()
+        return {"status": "success", "metrics": stats}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@api_router.get("/query-analytics", tags=["monitoring"])
+async def get_query_analytics() -> Dict[str, Any]:
+    """Get query analytics and insights"""
+    try:
+        from ..services.monitoring_service import MonitoringService
+        monitoring = MonitoringService()
+        analytics = monitoring.get_query_analytics()
+        return {"status": "success", "analytics": analytics}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# Employee Management APIs
+@api_router.get("/employees/{employee_id}", tags=["employee-management"])
+async def get_employee(employee_id: str) -> Dict[str, Any]:
+    """Get employee details with all projects"""
+    try:
+        # Add VVDN prefix if not present
+        full_employee_id = f"VVDN/{employee_id}" if not employee_id.startswith("VVDN/") else employee_id
+        result = await upload_service.get_employee_details(full_employee_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@api_router.put("/employees/{employee_id}/skills", response_model=EmployeeResponse, tags=["employee-management"])
+async def update_employee_skills(employee_id: str, skills_data: SkillsUpdateRequest) -> EmployeeResponse:
+    """Update employee skills"""
+    try:
+        # Add VVDN prefix if not present
+        full_employee_id = f"VVDN/{employee_id}" if not employee_id.startswith("VVDN/") else employee_id
+        result = await upload_service.update_employee_skills(full_employee_id, skills_data.dict())
+        
+        # Invalidate and rebuild caches for this employee
+        from ..services.cache_invalidation_service import cache_invalidation_service
+        await cache_invalidation_service.invalidate_and_rebuild_employee(full_employee_id)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/employees/{employee_id}/projects", response_model=EmployeeResponse, tags=["employee-management"])
+async def add_employee_projects(employee_id: str, projects_data: ProjectsUpdateRequest) -> EmployeeResponse:
+    """Add new projects to employee (does not remove existing projects)"""
+    try:
+        # Add VVDN prefix if not present
+        full_employee_id = f"VVDN/{employee_id}" if not employee_id.startswith("VVDN/") else employee_id
+        result = await upload_service.add_employee_projects(full_employee_id, projects_data.dict())
+        
+        # Invalidate and rebuild caches for this employee
+        from ..services.cache_invalidation_service import cache_invalidation_service
+        await cache_invalidation_service.invalidate_and_rebuild_employee(full_employee_id)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.get("/employees/{employee_id}/projects", response_model=ProjectsListResponse, tags=["employee-management"])
+async def list_employee_projects(employee_id: str) -> ProjectsListResponse:
+    """List all projects for an employee"""
+    try:
+        # Add VVDN prefix if not present
+        full_employee_id = f"VVDN/{employee_id}" if not employee_id.startswith("VVDN/") else employee_id
+        result = await upload_service.list_employee_projects(full_employee_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@api_router.delete("/employees/{employee_id}/projects", tags=["employee-management"])
+async def delete_all_employee_projects(employee_id: str) -> Dict[str, Any]:
+    """Delete all projects for an employee"""
+    try:
+        # Add VVDN prefix if not present
+        full_employee_id = f"VVDN/{employee_id}" if not employee_id.startswith("VVDN/") else employee_id
+        result = await upload_service.delete_all_employee_projects(full_employee_id)
+        
+        # Invalidate and rebuild caches for this employee
+        from ..services.cache_invalidation_service import cache_invalidation_service
+        await cache_invalidation_service.invalidate_and_rebuild_employee(full_employee_id)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.delete("/employees/{employee_id}/projects/{project_id}", tags=["employee-management"])
+async def delete_employee_project(employee_id: str, project_id: str) -> Dict[str, Any]:
+    """Delete specific project for an employee"""
+    try:
+        # Add VVDN prefix if not present
+        full_employee_id = f"VVDN/{employee_id}" if not employee_id.startswith("VVDN/") else employee_id
+        result = await upload_service.delete_employee_project(full_employee_id, project_id)
+        
+         # Invalidate and rebuild caches for this employee
+        from ..services.cache_invalidation_service import cache_invalidation_service
+        await cache_invalidation_service.invalidate_and_rebuild_employee(full_employee_id)
+        
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.patch("/employees/{employee_id}/profile", response_model=EmployeeResponse, tags=["employee-management"])
+async def update_employee_profile(employee_id: str, profile_data: ProfileUpdateRequest) -> EmployeeResponse:
+    """Update employee profile information"""
+    try:
+        # Add VVDN prefix if not present
+        full_employee_id = f"VVDN/{employee_id}" if not employee_id.startswith("VVDN/") else employee_id
+        result = await upload_service.update_employee_profile(full_employee_id, profile_data.dict(exclude_unset=True))
+        
+        # Invalidate and rebuild caches for this employee
+        from ..services.cache_invalidation_service import cache_invalidation_service
+        await cache_invalidation_service.invalidate_and_rebuild_employee(full_employee_id)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+

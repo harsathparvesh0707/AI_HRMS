@@ -1,0 +1,31 @@
+# Cache Configuration
+cache:
+  # Cache strategy: auto, redis, memory
+  # auto: Try Redis first, fallback to memory if Redis unavailable
+  strategy: "auto"
+  
+  # Redis Configuration
+  redis:
+    host: "localhost"
+    port: 6379
+    db: 0
+    password: null
+    connection_timeout: 5
+    socket_timeout: 5
+    max_connections: 20
+    
+  # Memory Cache Configuration (Caffeine-style)
+  memory:
+    max_size: 100000
+    expire_after_write: 3600  # seconds
+    expire_after_access: 1800  # seconds
+    
+  # Compression Cache Settings
+  compression:
+    ttl: 7200  # 2 hours
+    max_entries: 500000
+    
+  # Performance Settings
+  performance:
+    batch_size: 1000
+    async_operations: true
