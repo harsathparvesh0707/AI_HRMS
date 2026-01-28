@@ -1,0 +1,686 @@
+{
+  "info": {
+    "name": "AI HRMS - Complete API Collection",
+    "description": "Comprehensive collection of all AI HRMS API endpoints for employee search, management, and system administration",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & System",
+      "item": [
+        {
+          "name": "Root Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            }
+          }
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "System Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/system-health",
+              "host": ["{{baseUrl}}"],
+              "path": ["system-health"]
+            }
+          }
+        },
+        {
+          "name": "Performance Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/performance-metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["performance-metrics"]
+            }
+          }
+        },
+        {
+          "name": "Query Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/query-analytics",
+              "host": ["{{baseUrl}}"],
+              "path": ["query-analytics"]
+            }
+          }
+        },
+        {
+          "name": "System Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats"]
+            }
+          }
+        },
+        {
+          "name": "Debug Data",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/debug-data",
+              "host": ["{{baseUrl}}"],
+              "path": ["debug-data"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employee Search",
+      "item": [
+        {
+          "name": "Basic Search",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Find React developers with 3+ years experience\",\n  \"top_k\": 10,\n  \"search_type\": \"combined\",\n  \"user_id\": \"hr_manager\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search",
+              "host": ["{{baseUrl}}"],
+              "path": ["search"]
+            }
+          }
+        },
+        {
+          "name": "Search Results Only",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Python developers for backend project\",\n  \"top_k\": 15\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-result",
+              "host": ["{{baseUrl}}"],
+              "path": ["search-result"]
+            }
+          }
+        },
+        {
+          "name": "Search with Ranking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Full stack developers with Node.js and React\",\n  \"top_k\": 20\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-rank",
+              "host": ["{{baseUrl}}"],
+              "path": ["search-rank"]
+            }
+          }
+        },
+        {
+          "name": "Search Rank Simplified",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Mobile app developers with Flutter experience\",\n  \"top_k\": 10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-rank-simplified",
+              "host": ["{{baseUrl}}"],
+              "path": ["search-rank-simplified"]
+            }
+          }
+        },
+        {
+          "name": "Search Rank Simplified New",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"DevOps engineers with AWS and Docker\",\n  \"top_k\": 8\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-rank-simplified-new",
+              "host": ["{{baseUrl}}"],
+              "path": ["search-rank-simplified-new"]
+            }
+          }
+        },
+        {
+          "name": "Search Rank Semantic",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Data scientists with machine learning expertise\",\n  \"top_k\": 12\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-rank-simplified-semantic",
+              "host": ["{{baseUrl}}"],
+              "path": ["search-rank-simplified-semantic"]
+            }
+          }
+        },
+        {
+          "name": "Advanced Query",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Senior Java developers for enterprise project\",\n  \"required_skills\": [\"Java\", \"Spring Boot\", \"Microservices\"],\n  \"min_experience\": 5.0,\n  \"max_results\": 25,\n  \"user_id\": \"project_manager\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/query",
+              "host": ["{{baseUrl}}"],
+              "path": ["query"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employee Management",
+      "item": [
+        {
+          "name": "Get Employee Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/employees/EMP001",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "EMP001"]
+            }
+          }
+        },
+        {
+          "name": "Update Employee Skills",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skills\": [\"React\", \"Node.js\", \"TypeScript\", \"MongoDB\", \"AWS\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/employees/EMP001/skills",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "EMP001", "skills"]
+            }
+          }
+        },
+        {
+          "name": "Add Employee Projects",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projects\": [\n    {\n      \"project_name\": \"E-Commerce Platform\",\n      \"customer\": \"TechCorp Inc\",\n      \"project_department\": \"Software Development\",\n      \"project_industry\": \"E-commerce\",\n      \"project_status\": \"active\",\n      \"occupancy\": 80,\n      \"start_date\": \"2024-01-15\",\n      \"end_date\": \"2024-06-30\",\n      \"role\": \"Full Stack Developer\",\n      \"deployment\": \"BIL\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/employees/EMP001/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "EMP001", "projects"]
+            }
+          }
+        },
+        {
+          "name": "List Employee Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/employees/EMP001/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "EMP001", "projects"]
+            }
+          }
+        },
+        {
+          "name": "Delete All Employee Projects",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/employees/EMP001/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "EMP001", "projects"]
+            }
+          }
+        },
+        {
+          "name": "Delete Specific Project",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/employees/EMP001/projects/PROJECT123",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "EMP001", "projects", "PROJECT123"]
+            }
+          }
+        },
+        {
+          "name": "Update Employee Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"display_name\": \"John Doe\",\n  \"employee_department\": \"Software Engineering\",\n  \"total_exp\": \"6 years\",\n  \"vvdn_exp\": \"3 years\",\n  \"designation\": \"Senior Software Engineer\",\n  \"tech_group\": \"Full Stack\",\n  \"emp_location\": \"Bangalore\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/employees/EMP001/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "EMP001", "profile"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Data Upload & Management",
+      "item": [
+        {
+          "name": "Upload HRMS Data",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "description",
+                  "value": "Employee data upload - Q1 2024",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/upload/hrms-data",
+              "host": ["{{baseUrl}}"],
+              "path": ["upload", "hrms-data"]
+            }
+          }
+        },
+        {
+          "name": "Initialize Database",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/init-database",
+              "host": ["{{baseUrl}}"],
+              "path": ["init-database"]
+            }
+          }
+        },
+        {
+          "name": "Index Employees",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/index-employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["index-employees"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cache Management",
+      "item": [
+        {
+          "name": "Get Cache Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cache-stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["cache-stats"]
+            }
+          }
+        },
+        {
+          "name": "Clear All Caches",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clear-cache",
+              "host": ["{{baseUrl}}"],
+              "path": ["clear-cache"]
+            }
+          }
+        },
+        {
+          "name": "Precompute Embeddings",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/precompute-embeddings",
+              "host": ["{{baseUrl}}"],
+              "path": ["precompute-embeddings"]
+            }
+          }
+        },
+        {
+          "name": "Rebuild Compression Cache",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/rebuild-compression-cache",
+              "host": ["{{baseUrl}}"],
+              "path": ["rebuild-compression-cache"]
+            }
+          }
+        },
+        {
+          "name": "Get Compression Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/compression-stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["compression-stats"]
+            }
+          }
+        },
+        {
+          "name": "Get Cache Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cache-info",
+              "host": ["{{baseUrl}}"],
+              "path": ["cache-info"]
+            }
+          }
+        },
+        {
+          "name": "Switch Cache Type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "\"redis\""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/switch-cache?cache_type=redis",
+              "host": ["{{baseUrl}}"],
+              "path": ["switch-cache"],
+              "query": [
+                {
+                  "key": "cache_type",
+                  "value": "redis"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sample Queries",
+      "item": [
+        {
+          "name": "Find Frontend Developers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Find frontend developers with React and Angular experience\",\n  \"top_k\": 10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-rank-simplified-semantic",
+              "host": ["{{baseUrl}}"],
+              "path": ["search-rank-simplified-semantic"]
+            }
+          }
+        },
+        {
+          "name": "Find Backend Developers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Backend developers with Java Spring Boot and microservices\",\n  \"top_k\": 15\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-rank-simplified-semantic",
+              "host": ["{{baseUrl}}"],
+              "path": ["search-rank-simplified-semantic"]
+            }
+          }
+        },
+        {
+          "name": "Find Mobile Developers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Mobile app developers with Flutter and React Native\",\n  \"top_k\": 8\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-rank-simplified-semantic",
+              "host": ["{{baseUrl}}"],
+              "path": ["search-rank-simplified-semantic"]
+            }
+          }
+        },
+        {
+          "name": "Find DevOps Engineers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"DevOps engineers with AWS, Docker, and Kubernetes experience\",\n  \"top_k\": 12\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-rank-simplified-semantic",
+              "host": ["{{baseUrl}}"],
+              "path": ["search-rank-simplified-semantic"]
+            }
+          }
+        },
+        {
+          "name": "Find Data Scientists",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Data scientists with Python, machine learning, and TensorFlow\",\n  \"top_k\": 10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-rank-simplified-semantic",
+              "host": ["{{baseUrl}}"],
+              "path": ["search-rank-simplified-semantic"]
+            }
+          }
+        },
+        {
+          "name": "Find Available Employees",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Available employees with less than 50% occupancy\",\n  \"top_k\": 20\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-rank-simplified-semantic",
+              "host": ["{{baseUrl}}"],
+              "path": ["search-rank-simplified-semantic"]
+            }
+          }
+        },
+        {
+          "name": "Find Senior Developers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Senior developers with 5+ years experience for team lead role\",\n  \"top_k\": 15\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-rank-simplified-semantic",
+              "host": ["{{baseUrl}}"],
+              "path": ["search-rank-simplified-semantic"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
