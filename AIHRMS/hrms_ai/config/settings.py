@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
     
     # Database
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/hrms_vector_db"
+    database_url: str = "postgresql://postgres:postgres%40123@localhost:5432/hrms_vector_db"
     
     # LLM Configuration
     ollama_model: str = "qwen2:0.5b"
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     embedding_model: str = "all-MiniLM-L6-v2"
     
     # RAG + Hybrid Search Configuration
-    gemini_api_key: str = "AIzaSyD3-Xnj7nBAk48N4Ym7QF73nxd6BZH6TV8"
+    gemini_api_key: str = "AIzaSyDpBuzaSqef2cL9UbXCvIIKLYkkGszs-no"
     use_hybrid_search: str = "true"
     
     # API Configuration

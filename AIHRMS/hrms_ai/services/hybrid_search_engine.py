@@ -2844,7 +2844,7 @@ class HybridSearchEngine:
                     simplified_groups.add('backend')
                 elif any(x in tg_lower for x in ['frontend', 'front end', 'react', 'angular', 'vue']):
                     simplified_groups.add('frontend')
-                elif any(x in tg_lower for x in ['full stack', 'fullstack']):
+                elif any(x in tg_lower for x in ['full stack', 'fullstack', 'full-stack']):
                     simplified_groups.add('full stack')
                 # Keep mobile categories specific
                 elif 'android' in tg_lower:

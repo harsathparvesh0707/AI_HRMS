@@ -1351,7 +1351,7 @@ class AISearchService:
             # -------------------------------------------------------
             # 1) Search phase (same as before)
             # -------------------------------------------------------
-            sql_results = await self.hybrid_engine._sql_search_loose_simplified_semantic(parsed_query)
+            # sql_results = await self.hybrid_engine._sql_search_loose_simplified_semantic(parsed_query)
 
             has_structured_filters = any([
                 parsed_query.get('strict_filter'),
@@ -1367,7 +1367,7 @@ class AISearchService:
             is_generic = not has_structured_filters and len(query.split()) <= 5
             mode = "sql" if has_structured_filters else "vector" if is_generic else "hybrid"
 
-            merged_results = sql_results if mode == "sql" else (
+            merged_results = (await self.hybrid_engine._sql_search_loose_simplified_semantic(parsed_query)) if mode == "sql" else (
                 await self.hybrid_engine._vector_search(query, (top_k * 2) if top_k else None)
             )
 
@@ -1538,7 +1538,7 @@ class AISearchService:
             # -------------------------------------------------------
             # 1) Search phase (same as before)
             # -------------------------------------------------------
-            sql_results = await self.hybrid_engine._sql_search_loose_simplified(parsed_query)
+            # sql_results = await self.hybrid_engine._sql_search_loose_simplified(parsed_query)
 
             has_structured_filters = any([
                 parsed_query.get('strict_filter'),
@@ -1554,7 +1554,7 @@ class AISearchService:
             is_generic = not has_structured_filters and len(query.split()) <= 5
             mode = "sql" if has_structured_filters else "vector" if is_generic else "hybrid"
 
-            merged_results = sql_results if mode == "sql" else (
+            merged_results = (await self.hybrid_engine._sql_search_loose_simplified(parsed_query)) if mode == "sql" else (
                 await self.hybrid_engine._vector_search(query, (top_k * 2) if top_k else None)
             )
 
@@ -1627,25 +1627,68 @@ class AISearchService:
                 f"{len(llm_candidates)} employees will go through LLM PDP ranking."
             )
 
-            if pre_ranked:
-                logger.info("🧠 Sending Python pre-ranked employees to LLM for reasoning + score refinement...")
-                pre_ranked = await self.ranking_service.llm_generate_reason_and_scores(pre_ranked)
-
             # -------------------------------------------------------
-            # 5) LLM-based PDP ranking for remaining employees
+            # 4) PARALLEL LLM processing for both groups
             # -------------------------------------------------------
+            pre_ranked_processed = []
             llm_ranked = []
-            if llm_candidates:
-                logger.info(f"🧠 Starting LLM PDP ranking for {len(llm_candidates)} candidates...")
-                llm_ranked = await self.ranking_service.llm_rank_candidates_simplified(
-                    query, parsed_query, llm_candidates, top_k
-                )
-                logger.info(f"🧠 LLM PDP ranking finished for {len(llm_ranked)} employees.")
-            else:
-                logger.info("🧠 No employees require LLM PDP ranking in this query.")
+
+            try:
+                # Create tasks for parallel execution
+                tasks = []
+                
+                if pre_ranked:
+                    logger.info("🧠 Sending Python pre-ranked employees to LLM for reasoning + score refinement...")
+                    tasks.append(self.ranking_service.llm_generate_reason_and_scores(pre_ranked))
+                else:
+                    # If no pre_ranked, create an empty task
+                    async def empty_pre_ranked():
+                        return []
+                    tasks.append(empty_pre_ranked())
+                
+                if llm_candidates:
+                    logger.info(f"🧠 Starting LLM PDP ranking for {len(llm_candidates)} candidates...")
+                    tasks.append(self.ranking_service.llm_rank_candidates_simplified(
+                        query, parsed_query, llm_candidates, top_k
+                    ))
+                else:
+                    # If no llm_candidates, create an empty task
+                    async def empty_llm_ranked():
+                        return []
+                    tasks.append(empty_llm_ranked())
+                
+                # Run both LLM calls in parallel
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Process results with error handling
+                for i, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        logger.error(f"❌ Error in LLM task {i}: {result}")
+                        if i == 0 and pre_ranked:
+                            # Error in pre_ranked processing, use original pre_ranked without LLM refinement
+                            pre_ranked_processed = pre_ranked
+                            logger.warning("⚠️ Using pre-ranked employees without LLM refinement due to error")
+                        elif i == 1 and llm_candidates:
+                            # Error in llm ranking, use empty list
+                            llm_ranked = []
+                            logger.warning("⚠️ LLM ranking failed, no LLM-ranked employees will be included")
+                    else:
+                        if i == 0:  # First task was pre_ranked processing
+                            pre_ranked_processed = result
+                            logger.info(f"✅ LLM refinement completed for {len(pre_ranked_processed)} pre-ranked employees")
+                        else:  # Second task was llm ranking
+                            llm_ranked = result
+                            logger.info(f"✅ LLM PDP ranking completed for {len(llm_ranked)} employees")
+                
+            except Exception as e:
+                logger.error(f"❌ Parallel LLM processing error: {e}")
+                # Fallback to sequential processing or original data
+                if pre_ranked:
+                    pre_ranked_processed = pre_ranked  # Use without LLM refinement
+                llm_ranked = []  # Skip LLM ranked
 
             # Combine pre-ranked + LLM-ranked
-            final_ranked = pre_ranked + llm_ranked
+            final_ranked = pre_ranked_processed + llm_ranked
 
             # -------------------------------------------------------
             # 6) Attach full employee details + projects
@@ -1664,6 +1707,7 @@ class AISearchService:
                     full_emp_data['projects'] = self.ranking_service._get_employee_projects(emp_id)
 
                     full_emp_data.update({
+                        "ranked_by": ranked_emp.get("ranked_by"),
                         "ai_score": ranked_emp.get("ai_score"),
                         "ai_reason": ranked_emp.get("ai_reason"),
                         "ai_tier": ranked_emp.get("ai_tier"),

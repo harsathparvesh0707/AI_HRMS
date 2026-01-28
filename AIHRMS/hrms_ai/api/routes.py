@@ -9,6 +9,7 @@ from ..services.embedding_cache_service import EmbeddingCacheService
 from ..models.schemas import (ChatRequest, ChatResponse, UploadResponse, QueryRequest, QueryResponse,
                             SkillsUpdateRequest, ProjectsUpdateRequest, ProfileUpdateRequest, EmployeeResponse, ProjectsListResponse)
 from .endpoints import health
+from ..celery.tasks import rebuild_embedding_cache
 
 api_router = APIRouter()
 
@@ -119,7 +120,6 @@ async def advanced_query(request: QueryRequest) -> QueryResponse:
 
 @api_router.post("/upload/hrms-data", response_model=UploadResponse, tags=["upload"])
 async def upload_hrms_data(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     description: str = Form("")
 ) -> UploadResponse:
@@ -128,7 +128,8 @@ async def upload_hrms_data(
     result = await upload_service.process_file_upload(file, description)
     
     # Trigger cache rebuild in background for search optimization
-    background_tasks.add_task(_post_upload_cache_rebuild)
+    # background_tasks.add_task(_post_upload_cache_rebuild)
+    rebuild_embedding_cache.delay()
     
     return result
 
@@ -186,28 +187,6 @@ async def _index_employees_background():
         logger.info("✅ Background indexing completed")
     except Exception as e:
         logger.error(f"❌ Background indexing failed: {e}")
-
-async def _post_upload_cache_rebuild():
-    """Background cache rebuild after file upload - clears ALL caches"""
-    try:
-        # Use unified cache rebuild method
-        embedding_service = EmbeddingCacheService()
-        if embedding_service.available:
-            # Clear existing caches first
-            await embedding_service.invalidate_employee_cache()
-            embedding_service.clear_query_cache()
-            
-            # Rebuild all caches using unified method
-            result = await embedding_service.rebuild_all_caches()
-            if result.get('status') == 'success':
-                logger.info(f"✅ Post-upload unified cache rebuild completed: {result.get('employees_processed', 0)} employees")
-            else:
-                logger.warning(f"⚠️ Post-upload cache rebuild had issues: {result.get('message', 'Unknown error')}")
-        else:
-            logger.warning("⚠️ Embedding service not available for cache rebuild")
-        
-    except Exception as e:
-        logger.error(f"❌ Post-upload cache rebuild failed: {e}")
 
 async def _precompute_embeddings_background():
     """Background task for unified embedding precomputation"""

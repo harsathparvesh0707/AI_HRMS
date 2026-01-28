@@ -12,6 +12,7 @@ from ..models.schemas import UploadResponse
 from ..repositories.employee_repository import EmployeeRepository
 from ..repositories.project_repository import ProjectRepository
 from .compression_service import compression_service
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +163,9 @@ class UploadService:
                 raise HTTPException(status_code=400, detail="Unsupported file format")
             
             # Read and process file
+            start_time = datetime.now()
             file_content = await file.read()
+            logger.info(f"File read time: {datetime.now() - start_time}s")
             if len(file_content) == 0:
                 raise HTTPException(status_code=400, detail="Empty file")
             

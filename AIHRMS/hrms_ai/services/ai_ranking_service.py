@@ -1821,17 +1821,15 @@ EMPLOYEES:
     employee_data_lookup: Dict[str, Dict[str, Any]],
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """
-        Python pre-ranking for heavy external employees.
-
-        - external heavy = external customer + deployment in {BIL, BU, BUD, IB, CRD} with high occupancy (>= 80)
-        - external heavy employees are NEVER sent to LLM
-        - seniors (designation contains Lead / Principal / Architect) can reach Tier 2
-        if they have < 3 non-free projects; otherwise Tier 3
-        - non-seniors in external heavy are Tier 3 or 4 depending on severity
-        - everyone else (internal / mixed / lighter external) goes to LLM
+        Python pre-ranking for EXTERNAL-HEAVY employees ONLY.
+        
+        EXTERNAL-HEAVY DEFINITION: Any deployment with BIL/BU/BUD/IB/CRD code and occupancy ≥ 80%
+        
+        IMPORTANT: External-heavy employees get LOW SCORES because they are heavily committed
+        to external client work and should NOT be assigned to new projects.
         """
 
-        logger.info("🧮 Starting Python pre-ranking for external-heavy employees...")
+        logger.info("🧮 Starting Python pre-ranking for EXTERNAL-HEAVY employees...")
 
         def parse_dep_detail(dep_detail: str) -> List[Dict[str, Any]]:
             entries = []
@@ -1859,49 +1857,34 @@ EMPLOYEES:
                 })
             return entries
 
-        # severity order for external codes (bigger = worse)
-        severity_order = {
-            "FR": 1, "BK": 2, "SH": 3,
-            "RD": 4,
-            "BU": 5, "BUD": 5, "IB": 5,
-            "BIL": 6, "CRD": 7, "CLIENT": 7,
-        }
-
-        heavy_codes = {"BIL", "BU", "BUD", "IB", "CRD"}
-        shadow_codes = {"SH"}
-        unknown_codes = {"UK"}
-        heavy_occ_threshold = 80
+        # EXTERNAL-HEAVY CODES (as per LLM prompt)
+        # These are the codes that indicate heavy external client work
+        # BIL = Billable, BU = Budgeted, BUD = Budgeted, IB = Internal Budgeted, CRD = Credited
+        external_heavy_codes = {"BIL", "BU", "BUD", "IB", "CRD"}
+        
+        # OCCUPANCY THRESHOLD for external-heavy (as per LLM prompt)
+        heavy_occupancy_threshold = 80
 
         pre_ranked: List[Dict[str, Any]] = []
         llm_candidates: List[Dict[str, Any]] = []
-
-        external_heavy_ids: List[str] = []
-        llm_ids: List[str] = []
 
         for emp in employees:
             emp_id_full = emp.get("employee_id", "")
             compression = emp.get("compression", "")
             parts = compression.split("|")
 
-            # compression format:
-            # id|role_code|tech_group|location|exp|proj_count|dept|DEP_SUMMARY|DEP_DETAIL|skills
             if len(parts) < 9:
-                # malformed, just send to LLM
                 llm_candidates.append(emp)
-                llm_ids.append(emp_id_full)
                 continue
 
             compact_emp_id = parts[0].strip()
-            role_code = parts[1].strip()
             tech_group = parts[2].strip()
-            loc_code = parts[3].strip()
             exp_str = parts[4].strip()
             proj_count_str = parts[5].strip()
-            dep_summary = parts[7].strip()
             dep_detail = parts[8].strip()
-            skills = [s.strip().lower() for s in parts[9].split(",")] if len(parts) > 9 else []
+            skills_text = parts[9].strip().lower() if len(parts) > 9 else ""
 
-            # non-free project count (P from compression is non_free_count)
+            # Parse basic info
             try:
                 non_free_project_count = int(float(proj_count_str))
             except Exception:
@@ -1912,222 +1895,176 @@ EMPLOYEES:
             except Exception:
                 exp_years = 0.0
 
-            # original employee data to detect designation / seniority
+            # Get seniority
             orig = employee_data_lookup.get(emp_id_full, {})
             designation = (orig.get("designation") or "").lower()
-            is_senior = any(k in designation for k in ["lead", "principal", "architect"])
+            is_senior = any(k in designation for k in ["lead", "principal", "architect", "sr ", "tech lead", "senior"])
 
+            # Parse deployment details
             entries = parse_dep_detail(dep_detail)
-            logger.info(f"🔍 Parsed DEP_DETAIL for {compact_emp_id} => {entries}")
-            logger.info(f"🔍 Raw DEP_DETAIL for {compact_emp_id}: '{dep_detail}'")
-            logger.info(f"🔍 Full compression for {compact_emp_id}: '{compression}'")
-
             if not entries:
-                # no deployment info → send to LLM
                 llm_candidates.append(emp)
-                llm_ids.append(emp_id_full)
                 continue
 
-            has_internal = any(e["is_internal"] for e in entries)
+            # Separate internal and external entries
+            internal_entries = [e for e in entries if e["is_internal"]]
             external_entries = [e for e in entries if not e["is_internal"]]
-
-            # Calculate totals before internal check
+            
             total_external_occupancy = sum(e["occupancy"] for e in external_entries)
-            has_heavy_external = any(e["code"].upper() in heavy_codes and e["occupancy"] >= 70 for e in external_entries)
             
-            # if there is any Internal customer, check if still external-heavy
-            if has_internal:
-                # Pre-rank if: 80%+ external OR has heavy external codes (even with internal)
-                if total_external_occupancy >= 80 or has_heavy_external:
-                    logger.info(f"🔍 Employee {compact_emp_id} has internal projects but {total_external_occupancy}% external + heavy codes - treating as external_heavy")
-                    # Continue to external_heavy logic below
-                else:
-                    llm_candidates.append(emp)
-                    llm_ids.append(emp_id_full)
-                    logger.info(f"🔍 Employee {compact_emp_id} sent to LLM due to internal project involvement with low external occupancy ({total_external_occupancy}%)")
-                    continue
-
-            # detect external_heavy: expanded conditions
-            external_heavy = False
-            worst_external_code = None
-            worst_severity = 0
-            
-            # Count external projects and analyze patterns
-            external_project_count = len(external_entries)
-            non_zero_external_projects = [e for e in external_entries if e["occupancy"] > 0]
-            has_shadow_external = any(e["code"].upper() in shadow_codes and e["occupancy"] >= 80 for e in external_entries)
-            has_unknown_external = any(e["code"].upper() in unknown_codes for e in external_entries)
-            
-            if external_project_count >= 3 or len(entries) >= 5:
-                external_heavy = True
-                logger.info(
-                    f"🔍 Employee {compact_emp_id} auto-marked external_heavy "
-                    f"due to external_project_count={external_project_count}, total_projects={len(entries)}"
-                )
-
-            # Check multiple conditions for external_heavy:
-            # 1. Total external occupancy >= 80%
-            # 2. Any single heavy code >= 80% 
-            # 3. Multiple external projects (3+) indicating heavy external involvement
-            # 4. Has non-zero occupancy on external + multiple external projects (2+)
-            # 5. Shadow external 80%+ (learning but committed)
-            # 6. Unknown external projects (pre-rank based on count)
-            if total_external_occupancy >= 80:
-                external_heavy = True
-                logger.info(f"🔍 Employee {compact_emp_id} marked as external_heavy due to total occupancy: {total_external_occupancy}%")
-            elif external_project_count >= 3:
-                external_heavy = True
-                logger.info(f"🔍 Employee {compact_emp_id} marked as external_heavy due to multiple external projects: {external_project_count}")
-            elif len(non_zero_external_projects) > 0 and external_project_count >= 2:
-                external_heavy = True
-                logger.info(f"🔍 Employee {compact_emp_id} marked as external_heavy due to {len(non_zero_external_projects)} active + {external_project_count - len(non_zero_external_projects)} advisory external projects")
-            elif has_shadow_external:
-                external_heavy = True
-                logger.info(f"🔍 Employee {compact_emp_id} marked as external_heavy due to shadow external commitment")
-            elif has_unknown_external and external_project_count >= 1:
-                external_heavy = True
-                logger.info(f"🔍 Employee {compact_emp_id} marked as external_heavy due to unknown external projects: {external_project_count}")
-
-            for e in external_entries:
-                code = e["code"].upper()
-                occ = e["occupancy"]
-                logger.info(f"🔍 Checking external entry for {compact_emp_id}: code={code}, occ={occ}, heavy_codes={heavy_codes}")
-                if code in heavy_codes and occ >= heavy_occ_threshold:
-                    external_heavy = True
-                    logger.info(f"🔍 Employee {compact_emp_id} marked as external_heavy due to {code} at {occ}%")
-                sev = severity_order.get(code, 5)
-                if sev > worst_severity:
-                    worst_severity = sev
-                    worst_external_code = code
-
-            if not external_heavy:
-                # external but not heavy => let LLM decide (could still be interesting)
-                codes_info = [f"{e['code']}:{e['occupancy']}" for e in external_entries]
-                logger.info(f"🔍 Employee {compact_emp_id} NOT marked as external_heavy - sending to LLM. Total external occupancy: {total_external_occupancy}%, external projects: {external_project_count} (active: {len(non_zero_external_projects)}), individual codes: {codes_info}")
-                llm_candidates.append(emp)
-                llm_ids.append(emp_id_full)
-                continue
-
-            # ---------------------------
-            # EXTERNAL HEAVY PRE-RANK LOGIC
-            # ---------------------------
-            external_heavy_ids.append(emp_id_full)
-
-            # very rough skill detection vs query
-            skills_text = compression.split("|", 9)[-1].lower() if "|" in compression else ""
+            # Get query skills for skill matching
             query_skills = [s.lower() for s in parsed_query.get("semantic_skills", [])] or \
                         [s.lower() for s in parsed_query.get("skills", [])]
-            strong_skill_match = any(qs in skills_text for qs in query_skills) if query_skills else False
-
-            # Python scores (heuristic, but consistent)
-            skill_score = 80.0 if strong_skill_match else 50.0
-            tech_score = 80.0 if strong_skill_match else 60.0
-            availability_score = 20.0  # external heavy = low availability
-            exp_score = min(100.0, 10.0 * exp_years) if exp_years > 0 else 40.0
             
-
-            # Determine tier for external-heavy employees
-            if not is_senior:
-                # Non-senior external-heavy
-                if total_external_occupancy >= 90:
-                    tier = 4
-                    overall = 18.0
+            # ============================================
+            # CHECK IF EMPLOYEE IS EXTERNAL-HEAVY
+            # ============================================
+            is_external_heavy = False
+            heavy_code_used = None
+            heavy_occupancy = 0
+            
+            # Check each external entry for heavy codes with high occupancy
+            for e in external_entries:
+                code = e["code"]
+                occ = e["occupancy"]
+                
+                if code in external_heavy_codes and occ >= heavy_occupancy_threshold:
+                    is_external_heavy = True
+                    heavy_code_used = code
+                    heavy_occupancy = occ
+                    break
+            
+            # ============================================
+            # DECISION: PRE-RANK ONLY EXTERNAL-HEAVY EMPLOYEES
+            # ============================================
+            if is_external_heavy:
+                # EXTERNAL-HEAVY EMPLOYEE - GIVE LOW SCORES (FIXED as per LLM prompt)
+                
+                # Calculate skill match for criteria scores
+                perfect_skill_match = False
+                good_skill_match = False
+                
+                if query_skills:
+                    matched_skills = sum(1 for skill in query_skills if skill in skills_text)
+                    if matched_skills == len(query_skills):
+                        perfect_skill_match = True
+                    elif matched_skills > 0:
+                        good_skill_match = True
+                
+                # ============================================
+                # FIXED SCORES FOR EXTERNAL-HEAVY (as per LLM prompt)
+                # ============================================
+                
+                if not is_senior:
+                    # NON-SENIOR EXTERNAL-HEAVY
+                    if total_external_occupancy >= 90:
+                        # Very heavily committed (≥90%) → LOWEST SCORE
+                        tier = 4
+                        overall_score = 10.0
+                    else:
+                        # Heavily committed (≥80% but <90%) → LOW SCORE
+                        tier = 3
+                        overall_score = 20.0
                 else:
-                    tier = 3
-                    overall = 26.0
-            else:
-                # Senior external-heavy
-                if total_external_occupancy >= 90 or non_free_project_count >= 3:
-                    tier = 3
-                    overall = 32.0
+                    # SENIOR EXTERNAL-HEAVY
+                    if total_external_occupancy >= 90 or non_free_project_count >= 3:
+                        # Very busy senior → LOW SCORE
+                        tier = 3
+                        overall_score = 25.0
+                    else:
+                        # Senior with some availability → MODERATE SCORE
+                        tier = 2
+                        overall_score = 60.0
+                
+                # ============================================
+                # CALCULATE CRITERIA SCORES (for display only)
+                # ============================================
+                
+                # 1. SKILL SCORE
+                if perfect_skill_match:
+                    skill_score = 95.0
+                elif good_skill_match:
+                    skill_score = 70.0
                 else:
-                    tier = 2
-                    overall = 50.0
-
-
-            ext = total_external_occupancy
-            int_occ = sum(e["occupancy"] for e in entries if e["is_internal"])
-
-            # 1) Base availability
-            if ext > 0:
-                # External work → very limited availability
-                # ext = 100 → 0 availability
-                # ext = 80  → 16 availability
-                # ext = 50  → 25 availability
-                availability_score = max(10.0, 50.0 - (ext * 0.4))
+                    skill_score = 50.0
+                
+                # 2. TECH GROUP SCORE
+                ctx = parsed_query.get("context", "")
+                if isinstance(ctx, list):
+                    ctx = " ".join([str(x).lower() for x in ctx])
+                else:
+                    ctx = str(ctx).lower()
+                
+                tech_group_lower = str(tech_group).lower()
+                tech_score = 40.0  # Default mismatch
+                
+                # Simple tech group matching for external-heavy
+                if any(term in tech_group_lower for term in ctx.split()):
+                    tech_score = 95.0
+                elif ("backend" in tech_group_lower or "back end" in tech_group_lower) and "backend" in ctx:
+                    tech_score = 80.0
+                elif "full stack" in tech_group_lower and ("full stack" in ctx or "backend" in ctx):
+                    tech_score = 80.0
+                
+                # 3. EXPERIENCE SCORE
+                if exp_years >= 8:
+                    exp_score = 100.0
+                elif exp_years >= 5:
+                    exp_score = 80.0
+                elif exp_years >= 3:
+                    exp_score = 60.0
+                elif exp_years >= 1:
+                    exp_score = 40.0
+                else:
+                    exp_score = 20.0
+                
+                # 4. AVAILABILITY SCORE (LOW for external-heavy)
+                if perfect_skill_match:
+                    availability_score = 30.0  # External-heavy with perfect skills
+                elif good_skill_match:
+                    availability_score = 20.0  # External-heavy with good skills
+                elif skill_score >= 50:
+                    availability_score = 10.0  # External-heavy with basic skills
+                else:
+                    availability_score = 5.0   # External-heavy with no skills
+                
+                # Senior multitasking bonus
+                if is_senior and perfect_skill_match and tech_score >= 90:
+                    availability_score = min(100.0, availability_score + 30.0)
+                
+                # Add to pre-ranked list
+                pre_ranked.append({
+                    **emp,
+                    "ranked_by": "system",
+                    "ai_tier": tier,
+                    "ai_score": round(overall_score, 1),  # FIXED LOW SCORE
+                    "ai_criteria": {
+                        "Skill": round(skill_score, 1),
+                        "TechGroup": round(tech_score, 1),
+                        "Availability": round(availability_score, 1),
+                        "Experience": round(exp_score, 1)
+                    },
+                })
+                
+                logger.info(f"🔍 EXTERNAL-HEAVY PRE-RANKED {compact_emp_id}: "
+                        f"code={heavy_code_used}, occ={heavy_occupancy}%, "
+                        f"senior={is_senior}, tier={tier}, score={overall_score}")
+            
             else:
-                # Internal-only → more flexible, but not full availability
-                # int_occ = 100 → 30 availability
-                # int_occ = 50  → 65 availability
-                availability_score = max(30.0, 100.0 - (int_occ * 0.7))
+                # NOT EXTERNAL-HEAVY → send to LLM
+                llm_candidates.append(emp)
+                
+                # Debug logging
+                if external_entries:
+                    ext_codes = [e['code'] for e in external_entries]
+                    ext_occ = [e['occupancy'] for e in external_entries]
+                    logger.info(f"🔍 SEND TO LLM {compact_emp_id}: Not external-heavy "
+                            f"(codes={ext_codes}, occ={ext_occ})")
+                else:
+                    logger.info(f"🔍 SEND TO LLM {compact_emp_id}: No external entries")
 
-            # 2) Seniority adjustment (very slight)
-            # Seniority = Lead / Principal / Architect
-            if is_senior:
-                # Senior people can multitask better → small benefit
-                availability_score += 5.0
-
-            # 3) Experience adjustment (subtle)
-            # Very experienced people can manage load slightly better
-            if exp_years >= 10:
-                availability_score += 5.0
-            elif exp_years >= 5:
-                availability_score += 5.0
-            elif exp_years >= 3:
-                availability_score += 2.5
-
-            # 4) Clamp to 0–100
-            availability_score = max(0.0, min(100.0, availability_score))
-
-            # Compute clean experience score
-            exp_score = self._experience_score_for_prerank(exp_years)
-
-            # Compute skill & tech group score
-            skill_score = self._skill_score_for_prerank(parsed_query, skills)
-            ctx = parsed_query.get("context", "")
-
-            # normalize to string
-            if isinstance(ctx, list):
-                ctx = " ".join([str(x).lower() for x in ctx])
-            else:
-                ctx = str(ctx).lower()
-
-            tech_group_matches = (str(tech_group).lower() in ctx)
-            tech_score = 80.0 if tech_group_matches else 60.0
-
-          
-            # 1. Availability sentence
-            availability_text = self._availability_reason_text(
-                total_external_occupancy,
-                total_internal_occupancy := sum(e["occupancy"] for e in entries if e["is_internal"])
-            )
-
-            # 2. Strength text (skills + tech group)
-            strength_text = self._strength_reason_text(
-                strong_skill_match,
-                tech_group_matches
-            )
-
-            reason = self._build_reason_for_prerank(
-                availability_text,
-                strength_text
-            )
-
-            pre_ranked.append({
-                **emp,
-                "ai_tier": tier,
-                "ai_score": overall,
-                "ai_reason": reason,
-                "ai_criteria": {
-                    "Skill": skill_score,
-                    "TechGroup": tech_score,
-                    "Availability": availability_score,
-                    "Experience": exp_score
-                },
-            })
-
-        logger.info(f"🧮 Pre-ranked employees (external heavy): {external_heavy_ids}")
-        logger.info(f"🧠 LLM-required employees: {llm_ids}")
+        logger.info(f"🧮 Pre-ranked {len(pre_ranked)} EXTERNAL-HEAVY employees with LOW SCORES")
+        logger.info(f"🧠 Sending {len(llm_candidates)} employees to LLM")
 
         return pre_ranked, llm_candidates
 
@@ -2204,7 +2141,7 @@ If ANY DEP_DETAIL entry has CUSTOMER containing "VVDN" or "INTERNAL":
 Internal projects include: VVDNINTERNALPROJECT, VVDNTRAINING, etc.
 CRITICAL RULE (APPLIES FIRST, OVERRIDES ALL OTHER RULES):
 - If ANY external occupancy ≥ 80% AND experience_years < 5 AND role is not senior → MUST be Tier 3 or 4 ONLY. Internal projects do NOT override this rule.
-- if Free (FR) , this employee should have the top tier 1 and score even compared with Internal projects.
+- If Free (FR), this employee should have the top tier 1 and score even compared with Internal projects.
 
 If an employee is FREE (FR) in deployment and their skills + tech_group match the job query:
 → They MUST be Tier 1 and placed at the top of Tier 1.
@@ -2238,35 +2175,125 @@ AVAILABILITY SCORING:
 1. If any deployment has code FR: → Availability = 100 (fully available).
 2. Else if there is ANY external work (BIL, BU, BUD, IB, CRD):
    → Availability = max(0, 40 - total_external_occupancy/2).
-     (Example: 100% external → ~0, 80% external → ~0–5, 50% external → ~15.)
+     (Example: 100% external → 0, 80% external → 0, 60% external → 10, 50% external → 15, 30% external → 25.)
 3. Else (only internal work: IN, RD, SH, BK):
    → Availability = max(30, 100 - total_internal_occupancy/2).
-     (Example: 100% internal → ~30–40, 50% internal → ~50–70.)
+     (Example: 100% internal → 50, 80% internal → 60, 50% internal → 75, 30% internal → 85.)
 
-Skill:
-- High if skills directly match the job query.
-- Medium for partial match.
-- Low if unrelated.
+SKILL SCORING (PRECISE VALUES):
+- Direct match to ALL required skills: 90-100
+- Direct match to PRIMARY skill only: 70-85  
+- Partial/related match: 50-69
+- Basic match: 30-49
+- No match: 0-29
 
-TechGroup:
-- High if tech_group exactly matches the query domain.
-- Medium if related.
-- Low if mismatched.
+SCORE BASED ON SKILL MATCH QUALITY:
 
-OVERALL SCORE:
-OverallScore = weighted average:
-( Skill*0.35 + TechGroup*0.25 + Availability*0.25 + Experience*0.15 )
+1. EXCELLENT MATCH (90-100):
+   - Has ALL required skills from query
+   - PLUS demonstrates advanced knowledge/certifications
+   - PLUS has related complementary skills
+   Example for Python Django query: "Python, Django, Flask, REST APIs, SQL" = 95-100
 
-Tier thresholds:
-- Tier 1 = OverallScore 80–100
-- Tier 2 = 41–79
-- Tier 3 = 20–40
-- Tier 4 = 0–19
+2. VERY GOOD MATCH (80-89):
+   - Has ALL required skills from query
+   - Basic level without advanced expertise
+   Example: "Python, Django" = 85-89
+
+3. GOOD MATCH (70-79):
+   - Has PRIMARY required skill with depth
+   - Missing some secondary required skills
+   Example: "Python Level 2, OOPs, Modules" (no Django) = 72-78
+
+4. BASIC MATCH (60-69):
+   - Has PRIMARY required skill at basic level
+   - No advanced knowledge demonstrated
+   Example: "Python" (only, no Django, no advanced topics) = 62-68
+
+5. PARTIAL MATCH (50-59):
+   - Has some related skills but not direct match
+   Example: "Java, Spring" for Python query = 52-58
+
+6. WEAK MATCH (40-49):
+   - Very basic or marginally related skills
+   Example: "C programming" for Python query = 42-48
+
+7. NO MATCH (0-39):
+   - Completely unrelated skills
+
+TECH GROUP SCORING (MUST FOLLOW QUERY ANALYSIS):
+
+ANALYZE THE INPUT QUERY
+
+IF QUERY MENTIONS SPECIFIC TECHNOLOGY (Python, Java, Android, React, etc):
+- Tech groups containing that specific technology: 90-100 (EXACT MATCH)
+- Other tech groups in same domain: 70-85 (RELATED)
+- Full Stack tech groups: 75-90 (VERSATILE)
+- Other domains: 30-65 (PARTIAL/MISMATCH)
+
+IF QUERY MENTIONS DOMAIN ONLY (backend, frontend, mobile):
+- Tech groups in that exact domain: 85-100 (EXACT MATCH)
+- Full Stack tech groups: 80-95 (VERSATILE)
+- Related domains: 60-80 (RELATED)
+- Different domains: 30-55 (MISMATCH)
+
+TECH GROUP SCORING EXAMPLES BASED ON QUERY:
+
+FOR PYTHON-RELATED QUERIES:
+- Backend - Python: 95-100 (EXACT MATCH)
+- Other Backend (Java, NodeJS, .NET): 65-80 (BACKEND DOMAIN)
+- Full Stack: 75-90 (CAN DO PYTHON BACKEND)
+- Frontend (React, Angular, Vue): 40-60 (DIFFERENT DOMAIN)
+- Mobile (Android, iOS): 35-55 (DIFFERENT DOMAIN)
+- Database/DevOps: 50-70 (RELATED)
+
+FOR BACKEND-ONLY QUERIES:
+- All Backend groups (Python, Java, NodeJS): 85-100
+- Full Stack: 80-95
+- Frontend: 45-65
+- Mobile: 40-60
+
+FOR ANDROID-RELATED QUERIES:
+- Android: 95-100
+- iOS, Hybrid Mobile: 70-85
+- Full Stack: 65-80
+- Backend: 50-70
+- Frontend: 45-65
+
+SPECIAL CASE: "Backend - DB" TECH GROUP
+- For backend queries: Score 70-85 (specialized backend but not application development)
+- For Python/Java/Node backend queries: Score 60-75 (database skills are related but not core development)
+- For frontend/mobile queries: Score 40-60 (different domain)
+
+EXPERIENCE SCORING (PRECISE VALUES):
+- 0-1 years: 20
+- 1-3 years: 40  
+- 3-5 years: 60
+- 5-8 years: 80
+- 8+ years: 100
+
+OVERALL SCORE CALCULATION:
+OverallScore = (Skill × 0.35) + (TechGroup × 0.25) + (Availability × 0.25) + (Experience × 0.15)
+
+TIER BOUNDARIES (STRICT):
+- Tier 1: OverallScore ≥ 80
+- Tier 2: OverallScore 41-79
+- Tier 3: OverallScore 20-40
+- Tier 4: OverallScore 0-19
+
+SCORING EXAMPLES FOR REFERENCE:
+1. Free employee with perfect skills: Skill=95, TechGroup=95, Availability=100, Experience=40 → Score=86 → Tier 1
+2. Internal employee with good match: Skill=80, TechGroup=85, Availability=50, Experience=60 → Score=70 → Tier 2
+3. External-heavy with partial skills: Skill=60, TechGroup=70, Availability=10, Experience=40 → Score=47 → Tier 2
+4. External-heavy with no skills: Skill=30, TechGroup=40, Availability=5, Experience=20 → Score=25 → Tier 3
+5. Mismatch with high experience: Skill=40, TechGroup=30, Availability=30, Experience=100 → Score=45 → Tier 2
 
 OUTPUT FORMAT (STRICT, ONE LINE PER EMPLOYEE):
 emp_id | TIER <1–4> | OverallScore XX | [Skill XX, TechGroup XX, Availability XX, Experience XX] | <exactly 2 concise sentences HR reasoning>
 
 Do NOT add any extra lines or commentary.
+Do NOT output scores with decimal points (use whole numbers).
+Do NOT deviate from the scoring formulas above.
 
 PROJECT QUERY:
 \"{query}\"
@@ -2396,149 +2423,95 @@ EMPLOYEES:
         # STRICT PROMPT (unchanged logic-wise – external-heavy already filtered)
         # -------------------------------------------------------------------------
         prompt = f"""
-    You are an expert HR evaluator performing PURE reasoning-style ranking using a STRICT PDP
-    (Preference–Demotion–Promotion) framework.
+You are an expert HR evaluator. You MUST balance skill matching with availability.
 
-    You must produce TWO things per employee:
-    1) A TIER (1–4)
-    2) A concise 2-sentence HR reasoning
+PROJECT QUERY: "{query}"
+REQUIRED SKILLS: {parsed_query.get('skills', [])}
+PREFERRED TECH GROUPS: {parsed_query.get('context', [])}
 
-    The reasoning MUST be:
-        • fully grounded ONLY in the compact record
-        • fact-based, no hallucination
-        • explicitly explain why the employee is promoted or demoted
-        • mention tech-group match or mismatch
-        • explain detected hybrid/full-stack/mobile multi-platform capability when present
-        • mention internal vs external project context
-        • mention occupancy / project load and availability category IN WORDS (not codes)
-        • mention senior-role override (Lead/Principal/Architect) if applied
+CRITICAL PRINCIPLE: Skill excellence can compensate for limited availability, especially for senior employees.
 
-    IMPORTANT RESTRICTIONS FOR REASONING:
-        • NEVER mention raw internal codes like "FR", "BK", "SH", "RD", "BU", "BIL", "CRD", "IN".
-        • NEVER mention raw DEP_DETAIL strings or customer tokens like "EXTREMENETWORKS",
-          "NORDENRESEARCHANDINN", "VVDNINTERNALPROJECT" etc.
-        • If you need to refer to them, use ONLY generic phrases such as:
-            - "internal company project"
-            - "external client project"
-            - "fully occupied on a client project"
-            - "partially allocated to internal work"
-        • NEVER guess full expanded customer names from compressed tokens.
+SCORING RULES:
 
-    ------------------------------------------------------------------------------------
-    COMPACT FORMAT (USE THIS STRUCTURE)
-    ------------------------------------------------------------------------------------
-    id|role_code|tech_group|location|experience_years|project_count|department|
-    DEP_SUMMARY|DEP_DETAIL|skills
+1. SKILL SCORE (0-100):
+   - Direct match to required skills: 90-100
+   - Related/semantic match (Python→Django, Java→Spring): 70-89
+   - Partial/basic match: 50-69
+   - No match: 0-49
 
-    Example internal:
-    16117|ES|Frontend - Angular|KO|2.8|2|CAMA|IN|IN:100:VVDNINTERNALPROJECT|angular,typescript,java
+2. TECHGROUP SCORE (0-100):
+   - Exact match to preferred groups: 95-100
+   - Related domain (Backend→Full Stack): 70-94
+   - Some relevance: 40-69
+   - Mismatch: 0-39
 
-    Example external:
-    19220|ES|Frontend - Angular|NO|7.3|1|CMAP|BIL|BIL:100:EXTREMENETWORKS|angular,javascript
+3. AVAILABILITY SCORE (0-100) - SKILL-AWARE:
+   FREE (FR) employees: 100
+   
+   EXTERNAL HEAVY (BIL/BU/BUD/IB/CRD ≥80%):
+   - Perfect skills: 30-40 (seniors: 40-50)
+   - Good skills: 20-30
+   - Basic skills: 10-20
+   - No skills: 5-10
+   
+   MIXED DEPLOYMENTS:
+   - Calculate as: 100 - (external_occupancy × 0.7) + (skill_bonus × 10)
+   - Skill bonus: Perfect=3, Good=2, Basic=1, None=0
+   
+   INTERNAL ONLY (IN/RD/SH/BK):
+   - 100% internal: 30-40
+   - <100% internal: 60 - (internal_occupancy × 0.3)
 
-    DEP_DETAIL always contains entries in the form:
-        CODE:OCCUPANCY:CUSTOMER
-    Internal project if CUSTOMER contains “VVDN” or “INTERNAL”.
+4. EXPERIENCE SCORE (0-100):
+   - 0-1 year: 20
+   - 1-3 years: 40
+   - 3-5 years: 60
+   - 5-8 years: 80
+   - 8+ years: 100
 
-    ------------------------------------------------------------------------------------
-    HYBRID / FULL-STACK / MULTI-PLATFORM CAPABILITY
-    ------------------------------------------------------------------------------------
-    Tech-group alone may not represent capability. Use skills to detect:
+SENIORITY BONUS (NEW):
+- Senior employees (Lead/Principal/Architect/Sr) get +20 to Availability score
+- They can manage multiple projects better
 
-    • FULL-STACK (Frontend + Backend skills together)
-        e.g., angular + java, react + node, react + spring boot, angular + spring boot, react + java.
+TIER ASSIGNMENT (Skill-Weighted):
+PERFECT MATCH employees (Skill≥90, TechGroup≥90):
+- Tier 1: Score ≥70
+- Tier 2: Score 40-69
+- Tier 3: Score 20-39
+- NEVER Tier 4
 
-    • HYBRID MOBILE
-        e.g., flutter + android, flutter + ios, android + ios.
+GOOD MATCH employees (Skill≥70, TechGroup≥70):
+- Tier 1: Score ≥80  
+- Tier 2: Score 45-79
+- Tier 3: Score 20-44
+- Tier 4: Score <20
 
-    • BACKEND-CLOUD HYBRID
-        e.g., java/python + cloud/devops skills.
+OTHER employees:
+- Standard tiers
 
-    If such hybrid capability satisfies the PROJECT QUERY domain:
-        → treat employee as matching the domain even if tech_group differs.
-        → mention explicitly in reasoning (e.g., “brings full-stack frontend + backend capability”).
-    Hybrid uplift NEVER bypasses demotion rules.
+OVERALL SCORE CALCULATION:
+For PERFECT matches: Score = (Skill×0.40 + TechGroup×0.30 + Availability×0.20 + Experience×0.10)
+For GOOD matches: Score = (Skill×0.35 + TechGroup×0.25 + Availability×0.25 + Experience×0.15)
+For OTHERS: Score = (Skill×0.30 + TechGroup×0.20 + Availability×0.30 + Experience×0.20)
 
-    ------------------------------------------------------------------------------------
-    TECH-GROUP OVERRIDE (PRIMARY FILTER)
-    ------------------------------------------------------------------------------------
-    If neither tech_group nor skills (including hybrid/full-stack inference) match the technical intent
-    of the PROJECT QUERY:
-        → MUST be Tier 3 or 4
-        → NEVER Tier 1 or 2
+EXAMPLE SCENARIOS:
+1. Senior with perfect Python skills but 100% external:
+   - Skill: 95, TechGroup: 95, Availability: 50 (30+20 senior bonus), Experience: 80
+   - Score: 95×0.40 + 95×0.30 + 50×0.20 + 80×0.10 = 38 + 28.5 + 10 + 8 = 84.5 → Tier 1
 
-    If skills DO match the query domain (even with a different tech_group):
-        → treat as matching domain for Tier 1/2 eligibility (subject to demotion rules).
+2. Junior with perfect skills but 100% external:
+   - Skill: 95, TechGroup: 95, Availability: 30, Experience: 30
+   - Score: 95×0.40 + 95×0.30 + 30×0.20 + 30×0.10 = 38 + 28.5 + 6 + 3 = 75.5 → Tier 1
 
-    ------------------------------------------------------------------------------------
-    DEMOTION / AVAILABILITY (for non-heavy / internal / mixed profiles)
-    ------------------------------------------------------------------------------------
-    Use DEP_DETAIL entries to interpret whether the employee is mainly on internal work,
-    lightly loaded external work, or mixed work, and describe this clearly in the reasoning
-    using natural language (not codes).
+3. Employee with no skill match, 100% external:
+   - Skill: 20, TechGroup: 40, Availability: 5, Experience: 50
+   - Score: 20×0.30 + 40×0.20 + 5×0.30 + 50×0.20 = 6 + 8 + 1.5 + 10 = 25.5 → Tier 3
 
-    ------------------------------------------------------------------------------------
-    PROMOTION RULES (within allowed band)
-    ------------------------------------------------------------------------------------
-    Inside the allowed band:
+OUTPUT FORMAT:
+emp_id | TIER <1-4> | OverallScore XX | [Skill XX, TechGroup XX, Availability XX, Experience XX] | <2 sentences>
 
-        Strong skill match (direct match with query domain and key skills) → top of band
-        Medium skill match (related skills)                               → middle of band
-        Weak alignment                                                    → bottom of band
-
-    Tie-breakers in order:
-        1. Lower total occupancy (more available)
-        2. Internal projects over external projects
-        3. Higher experience
-        4. Hybrid/full-stack advantage when relevant to the query
-
-    ------------------------------------------------------------------------------------
-    STEP 2 — SCORES (NOT used for ranking)
-    ------------------------------------------------------------------------------------
-    You must output ALL of the following numeric values (0–100):
-        Skill XX
-        TechGroup XX
-        Availability XX
-        Experience XX
-        OverallScore XX
-
-    You MUST always output a number for each criterion.
-    Never omit the criteria block, never leave any criterion blank.
-
-    OverallScore MUST strictly follow tier band:
-        Tier 1 → 80–100
-        Tier 2 → 41–79
-        Tier 3 → 20–40
-        Tier 4 → 0–19
-
-    Ensure OverallScore is consistent with the reasoning.
-
-    ------------------------------------------------------------------------------------
-    STRICT OUTPUT FORMAT (CRITICAL)
-    ------------------------------------------------------------------------------------
-    You MUST output EXACTLY one line per employee in this form:
-
-    emp_id | TIER <1–4> | OverallScore XX |
-    [Skill XX, TechGroup XX, Availability XX, Experience XX] |
-    <exactly 2 concise sentences HR reasoning>
-
-    Rules:
-        • The criteria block MUST be inside square brackets and list ALL four dimensions.
-        • The reasoning MUST be exactly 2 sentences.
-        • Do NOT add any extra lines or commentary.
-
-    ------------------------------------------------------------------------------------
-    PROJECT QUERY:
-    \"{query}\"
-
-    CONTEXT: {parsed_query.get('context','general')}
-    SKILLS NEEDED: {parsed_query.get('skills',[])}
-    LOCATION PREFERENCE: {parsed_query.get('location','any')}
-
-    ------------------------------------------------------------------------------------
-    EMPLOYEES:
-    {profiles_text}
-    """
+EMPLOYEES:
+{profiles_text}"""
 
         # -------------------------------------------------------------------------
         # LLM CALL
@@ -2651,8 +2624,7 @@ EMPLOYEES:
 
     async def llm_generate_reason_and_scores(self, pre_ranked: List[Dict[str, Any]]):
         """
-        LLM generates reasoning + ONLY Skill + Availability scores.
-        Python keeps TechGroup + Experience + OverallScore unchanged.
+        LLM generates reasoning ONLY. All scores remain unchanged.
         """
         import html, re
 
@@ -2660,82 +2632,101 @@ EMPLOYEES:
             return pre_ranked
 
         profiles_text = "\n".join(
-            f"{emp['employee_id']} | TIER {emp['ai_tier']} | {emp['compression']}"
+            f"{emp['employee_id']} | TIER {emp['ai_tier']} | SCORE {emp['ai_score']} | "
+            f"SKILL {emp['ai_criteria'].get('Skill', 0)} | TECH {emp['ai_criteria'].get('TechGroup', 0)} | "
+            f"AVAIL {emp['ai_criteria'].get('Availability', 0)} | EXP {emp['ai_criteria'].get('Experience', 0)}"
             for emp in pre_ranked
         )
 
         prompt = f"""
-    You are an HR evaluator. Tier and OverallScore are already assigned by Python.
-    You MUST NOT modify Tier or OverallScore.
+You are an HR evaluator providing reasoning for pre-ranked employees.
 
-    Your task for EACH employee:
-    1) Generate exactly 2 sentences of reasoning.
-    2) Generate ONLY:
-    • Skill (0–100)
+CRITICAL: DO NOT modify any scores or tiers. They are already calculated correctly.
 
-    RULES:
-    - Skill score must reflect actual capability from the skill list:
-    direct match = high, partial = medium, unrelated = low.
-    - Cross-skill versatility (Flutter+Android, Java+Kotlin, etc.) should increase Skill slightly.
-    - When evaluating Skill score, you MUST consider related or semantic skills.  
-        If the employee has a skill that is not an exact match but is semantically related 
-        (e.g., Kotlin for Android, Java for Android backend, TypeScript for React, 
-        Flutter for mobile), treat it as a medium or medium-high match.  
+Your task for EACH employee:
+Generate exactly 2 sentences of HR reasoning BASED ON THE EXISTING SCORES.
 
-    - Do NOT output TechGroup ,Experience or Availability.
-    - Do NOT invent details; use only the compression text.
-    - Do NOT mention deployment codes or customer names.
+IMPORTANT: DO NOT mention ANY deployment codes or customer names. Use only generic descriptions.
 
-    OUTPUT FORMAT (one line per employee):
-    emp_id | TIER X | [Skill XX] | <2 sentences of reasoning>
+SCORE INTERPRETATION:
+- Skill (XX): Skill match quality (higher = better match)
+- TechGroup (XX): Technology domain alignment (higher = better alignment)  
+- Availability (XX): Current availability (higher = more available)
+- Experience (XX): Years of experience (higher = more experienced)
+- Tier (1-4): 1=best, 4=lowest priority
 
-    EMPLOYEES:
-    {profiles_text}
-        """
+REASONING GUIDELINES:
+Based on Skill score:
+- ≥80: "excellent/strong skill alignment"
+- 60-79: "good/relevant skills"  
+- <60: "limited/partial skill match"
+
+Based on TechGroup score:
+- ≥80: "exact/perfect domain match"
+- 60-79: "related domain alignment"
+- <60: "domain mismatch"
+
+Based on Availability score:
+- ≥70: "high/complete availability"
+- 40-69: "moderate/partial availability" 
+- <40: "limited/heavy occupancy"
+
+Based on Experience score:
+- Consider if experience adds value or is limited
+
+ALWAYS USE GENERIC TERMS:
+- Instead of codes: "external client work", "internal project", "current assignments"
+- Instead of customers: "client projects", "company initiatives", "current engagements"
+
+NEVER MENTION:
+- FR, BK, SH, RD, BU, BIL, BUD, IB, CRD, IN (any deployment codes)
+- Customer names like "Extreme Networks", "Buspatrol", "NXP"
+- Technical jargon or abbreviations
+
+OUTPUT FORMAT (one line per employee):
+emp_id | TIER X | <2 sentences reasoning>
+
+EMPLOYEES WITH EXISTING SCORES:
+{profiles_text}
+"""
 
         response = await self.llm_service.generate_response(prompt)
         clean = html.unescape(response.strip())
 
-        results = []
-
+        # Create a mapping of employee_id to new reasoning
+        reasoning_map = {}
+        
         for line in clean.splitlines():
             line = line.strip()
             if not line or "|" not in line:
                 continue
 
             parts = [p.strip() for p in line.split("|")]
-            if len(parts) < 4:
+            if len(parts) < 3:  # Only need emp_id, tier, and reason
                 continue
 
             emp_id = parts[0]
-            tier = int(re.search(r'\d+', parts[1]).group(0))
+            
+            # Extract reasoning (everything after TIER)
+            if len(parts) >= 3:
+                reason = " | ".join(parts[2:]).strip()
+            else:
+                reason = parts[-1].strip()
+            
+            reasoning_map[emp_id] = reason
 
-            nums = re.findall(r'\d+', parts[2])
-            skill_score = float(nums[0]) if nums else 0.0
-
-            reason = " ".join(parts[3:]).strip()
-
-            results.append({
-                "emp": emp_id,
-                "tier": tier,
-                "skill": skill_score,
-                "reason": reason
-            })
-
-        # merge back
-        final = []
+        # Update only the reasoning in pre_ranked
         for emp in pre_ranked:
             eid = emp["employee_id"]
-            match = next((r for r in results if r["emp"] == eid), None)
-            if match:
-                # Update only Skill + Availability + Reason
-                emp["ai_reason"] = match["reason"]
-                emp["ai_criteria"]["Skill"] = match["skill"]
-                # TechGroup + Experience + Availability (remain SAME (Python)
-                # OverallScore remains SAME (Python)
-            final.append(emp)
+            if eid in reasoning_map:
+                # ONLY update the reasoning, keep all scores unchanged
+                emp["ai_reason"] = reasoning_map[eid]
+            else:
+                # Fallback: use existing or generate basic reason
+                if "ai_reason" not in emp or not emp.get("ai_reason"):
+                    emp["ai_reason"] = f"No LLM reasoning available"
 
-        return final
+        return pre_ranked
 
 
     def pre_rank_employees_simplified_enhanced(
