@@ -10,6 +10,8 @@ import NotificationsPage from "./components/NotificationsPage";
 
 import useStore from "./store/useStore";
 import useThemeColors from "./hooks/useThemeColors";
+import {uploadAPI,} from "./services/api";
+
 
 function AppContent() {
   const { theme, isAuthenticated, showDynamicUI, isGenerating } = useStore();
@@ -49,22 +51,8 @@ function AppContent() {
 
     try {
       useStore.setState({ isGenerating: true });
-
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-
-      const response = await fetch(
-        "http://172.25.244.2:8000/upload/hrms-data",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
-      const responseData = await response.json();
+      
+      const responseData = await uploadAPI(selectedFile);
 
       const tableData = responseData.all_employees || [];
 

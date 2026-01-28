@@ -1,7 +1,7 @@
   import { create } from "zustand";
   import { persist } from "zustand/middleware";
   import qwenFormatter from "../services/qwenFormatter";
-  import searchApi from "../services/searchApi";
+  import {searchAPI} from "../services/api";
 
   const useStore = create(
     persist(
@@ -558,7 +558,8 @@
           
           try {
             // Call search API directly
-            const searchResults = await searchApi.search(query);
+            const searchResults = await searchAPI(query);
+
 
             const isEmployeeSearch = searchResults.employee_search === true;
             
