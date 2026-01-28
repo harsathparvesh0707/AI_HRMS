@@ -1,4 +1,4 @@
-import searchApi from "./searchApi.js";
+import {searchAPI} from "../services/api";
 
 class QwenFormatter {
   constructor() {
@@ -12,7 +12,8 @@ class QwenFormatter {
       // console.log("Starting LLM-powered search:", query);
 
       // Step 1: Execute search
-      const rawSearchData = await searchApi.search(query);
+      const rawSearchData = await searchAPI(query);
+
       // console.log("Search API Response:", rawSearchData);
 
       // Step 2: Normalize data
