@@ -43,7 +43,7 @@ import {
   Pie,
 } from 'recharts';
 
-const DashboardCard = ({ card }) => {
+const DashboardCard = ({ card, activeId }) => {
   const { togglePin, removeCard, dynamicData, uploadedData} = useStore();
   
   // Use uploadedData for dashboard cards if available, fallback to dynamicData
@@ -62,7 +62,7 @@ const DashboardCard = ({ card }) => {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: activeId === card.id ? 0.5 : 1,
   };
 
   const renderIcon = () => {
