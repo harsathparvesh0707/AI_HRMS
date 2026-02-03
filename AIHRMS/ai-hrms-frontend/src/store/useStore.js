@@ -1,11 +1,24 @@
   import { create } from "zustand";
   import { persist } from "zustand/middleware";
   import qwenFormatter from "../services/qwenFormatter";
-  import {searchAPI} from "../services/api";
+  import {getProjectDistributions, searchAPI} from "../services/api";
 
   const useStore = create(
     persist(
       (set, get) => ({
+        // inside create(...)
+      projectDistribution: null,
+
+      fetchProjectDistribution: async () => {
+        if (get().projectDistribution) return;
+        try {
+          const res = await getProjectDistributions();
+          set({ projectDistribution: res });
+        } catch (error) {
+          console.error("Project distribution fetch failed", error);
+        }
+      },
+
         // Authentication
         isAuthenticated: false,
         user: null,
@@ -458,6 +471,7 @@
           pinned: false,
           size: 'medium',
           data: {},
+          // apiEndpoint: 'getProjectDistribution',
         },
          {
           id: 'project-occupancy',
@@ -636,7 +650,7 @@
       }),
       {
         name: "hrms-storage",
-        version: 7, // Increment this to reset localStorage
+        version: 8, // Increment this to reset localStorage
         partialize: (state) => ({
           theme: state.theme,
           colorTheme: state.colorTheme,
@@ -649,9 +663,12 @@
           userQuery: state.userQuery,
           uploadedData: state.uploadedData, 
         }),
+
+        
+        
         migrate: (persistedState, version) => {
-          // If version is less than 6, reset the state
-          if (version < 6) {
+          // If version is less than 8, reset the state
+          if (version < 8) {
             return undefined; // This will cause the store to use initial state
           }
           return persistedState;

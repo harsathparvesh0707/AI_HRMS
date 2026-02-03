@@ -1,4 +1,6 @@
+import axios from 'axios'
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 
 export async function searchAPI(query) {
     const response = await fetch(`${BASE_URL}/search-rank`, 
@@ -19,6 +21,7 @@ export async function searchAPI(query) {
 
 
 export async function uploadAPI(formData) {
+  console.log(formData)
   const response = await fetch(`${BASE_URL}/upload/hrms-data`,
         {
           method: "POST",
@@ -31,3 +34,9 @@ export async function uploadAPI(formData) {
       }
       return response.json();
 }
+
+export async function getProjectDistributions() {
+  const response = await  axios.get (`${BASE_URL}/dashboard/project_distribution`);
+  return response.data;
+}
+

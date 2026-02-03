@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -40,6 +40,14 @@ const DashboardGrid = ({ onNavigate }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const fileInputRef = useRef(null);
+
+  const fetchProjectDistribution = useStore(
+    (state) => state.fetchProjectDistribution
+  );
+
+  useEffect(() => {
+    fetchProjectDistribution();
+  }, []);
 
   // const handleFileUpload = async (event) => {
   //   debugger
