@@ -43,9 +43,9 @@ import {
   Pie,
 } from 'recharts';
 
-const DashboardCard = ({ card }) => {
-  const { togglePin, removeCard, dynamicData, uploadedData} = useStore();
-  
+const DashboardCard = ({ card, activeId }) => {
+  const { togglePin, removeCard, dynamicData, uploadedData, projectDistribution} = useStore();
+
   // Use uploadedData for dashboard cards if available, fallback to dynamicData
   const cardData = uploadedData || dynamicData;
   const colors = useThemeColors();
@@ -62,7 +62,7 @@ const DashboardCard = ({ card }) => {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: activeId === card.id ? 0.5 : 1,
   };
 
   const renderIcon = () => {
@@ -571,7 +571,26 @@ const DashboardCard = ({ card }) => {
           fill: projectColors[index]
         }));
         const projectData = mockProjects;
-        const totalProjectEmployees = projectData.reduce((sum, p) => sum + p.employeesWorking, 0);
+
+       const projectColors1 = [
+          '#3b82f6',
+          '#10b981',
+          '#f59e0b',
+          '#8b5cf6',
+          '#ec4899'
+        ];
+
+const projectDatas =
+  projectDistribution?.projects?.map((item, index) => ({
+    projectCode: item.project,              // ✅ correct key
+    employeesWorking: item.employee_count,  // ✅ correct key
+    fill: projectColors1[index % projectColors1.length], // ✅ safe color cycling
+  })) || [];
+
+      
+        
+
+        const totalProjectEmployees = projectDistribution?.total_employees;
         
         return (
           <div className="py-2">
@@ -592,7 +611,7 @@ const DashboardCard = ({ card }) => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={projectData}
+                    data={projectDatas}
                     cx="50%"
                     cy="50%"
                     innerRadius={40}
@@ -602,7 +621,7 @@ const DashboardCard = ({ card }) => {
                     animationBegin={200}
                     animationDuration={1000}
                   >
-                    {projectData.map((entry, index) => (
+                    {projectDatas.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
                   </Pie>
@@ -624,7 +643,7 @@ const DashboardCard = ({ card }) => {
               </ResponsiveContainer>
             </motion.div>
             <div className="grid grid-cols-2 gap-1 mt-2">
-              {projectData.slice(0, 4).map((project, index) => (
+              {projectDatas.slice(0, 5).map((project, index) => (
                 <div key={index} className="flex items-center gap-1 text-xs">
                   <div 
                     className="w-2 h-2 rounded-full" 

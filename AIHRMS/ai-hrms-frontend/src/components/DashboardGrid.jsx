@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -7,6 +7,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  DragOverlay,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -37,7 +38,16 @@ const DashboardGrid = ({ onNavigate }) => {
   const colors = useThemeColors();
   const [pinnedExpanded, setPinnedExpanded] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [activeId, setActiveId] = useState(null);
   const fileInputRef = useRef(null);
+
+  const fetchProjectDistribution = useStore(
+    (state) => state.fetchProjectDistribution
+  );
+
+  useEffect(() => {
+    fetchProjectDistribution();
+  }, []);
 
   // const handleFileUpload = async (event) => {
   //   debugger
@@ -182,6 +192,10 @@ const DashboardGrid = ({ onNavigate }) => {
     })
   );
 
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
+  };
+
   const handleDragEnd = (event) => {
     const { active, over } = event;
 
@@ -194,6 +208,7 @@ const DashboardGrid = ({ onNavigate }) => {
         reorderCards(newCards);
       }
     }
+    setActiveId(null);
   };
 
 
@@ -202,6 +217,7 @@ const DashboardGrid = ({ onNavigate }) => {
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
       <div className="px-4 py-3 space-y-4 bg-transparent">
@@ -253,7 +269,7 @@ const DashboardGrid = ({ onNavigate }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   <AnimatePresence mode="popLayout">
                     {pinnedCards.map((card) => (
-                      <DashboardCard key={card.id} card={card} />
+                      <DashboardCard key={card.id} card={card} activeId={activeId} />
                     ))}
                   </AnimatePresence>
                 </div>
@@ -298,7 +314,7 @@ const DashboardGrid = ({ onNavigate }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               <AnimatePresence mode="popLayout">
                 {unpinnedCards.map((card) => (
-                  <DashboardCard key={card.id} card={card} />
+                  <DashboardCard key={card.id} card={card} activeId={activeId} />
                 ))}
               </AnimatePresence>
             </div>
@@ -339,6 +355,15 @@ const DashboardGrid = ({ onNavigate }) => {
         onClose={() => setIsCreateModalOpen(false)} 
       />
 
+      <DragOverlay>
+        {activeId ? (
+          <div className="transform rotate-0 scale-[1] opacity-60">
+            <DashboardCard 
+              card={cards.find(card => card.id === activeId)} 
+            />
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 };

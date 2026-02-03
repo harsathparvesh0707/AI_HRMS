@@ -11,6 +11,7 @@ import NotificationsPage from "./components/NotificationsPage";
 import useStore from "./store/useStore";
 import useThemeColors from "./hooks/useThemeColors";
 import {uploadAPI,} from "./services/api";
+import { useNotificationStore } from "./store/useNotificationStore";
 
 
 function AppContent() {
@@ -29,6 +30,11 @@ function AppContent() {
     }
   }, [showDynamicUI]);
 
+  //  const connect = useNotificationStore((state) => state.connect);
+
+   useEffect(() => {
+  useNotificationStore.getState().connect();
+}, []);
 
 
   // Function to handle no data scenario
@@ -51,8 +57,13 @@ function AppContent() {
 
     try {
       useStore.setState({ isGenerating: true });
+
+      const formData = new FormData();
+      formData.append("file", selectedFile);
       
-      const responseData = await uploadAPI(selectedFile);
+      const responseData = await uploadAPI(formData);
+      console.log(responseData);
+      
 
       const tableData = responseData.all_employees || [];
 
