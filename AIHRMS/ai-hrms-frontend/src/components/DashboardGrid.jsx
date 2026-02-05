@@ -44,9 +44,13 @@ const DashboardGrid = ({ onNavigate }) => {
   const fetchProjectDistribution = useStore(
     (state) => state.fetchProjectDistribution
   );
+  const fetchAvailableEmployees = useStore(
+    (state) => state.fetchAvailableEmployees
+  );
 
   useEffect(() => {
     fetchProjectDistribution();
+    fetchAvailableEmployees();
   }, []);
 
   // const handleFileUpload = async (event) => {

@@ -40,3 +40,8 @@ export async function getProjectDistributions() {
   return response.data;
 }
 
+export async function getAvailableEmployees(monthThreshold = 10) {
+  const response = await axios.get(`${BASE_URL}/available_employees?month_threshold=${monthThreshold}`);
+  return response.data;
+}
+
