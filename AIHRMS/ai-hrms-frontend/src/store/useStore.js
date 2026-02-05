@@ -1,13 +1,14 @@
   import { create } from "zustand";
   import { persist } from "zustand/middleware";
   import qwenFormatter from "../services/qwenFormatter";
-  import {getProjectDistributions, searchAPI} from "../services/api";
+  import {getProjectDistributions, searchAPI, getAvailableEmployees} from "../services/api";
 
   const useStore = create(
     persist(
       (set, get) => ({
         // inside create(...)
       projectDistribution: null,
+      availableEmployees: null,
 
       fetchProjectDistribution: async () => {
         if (get().projectDistribution) return;
@@ -16,6 +17,15 @@
           set({ projectDistribution: res });
         } catch (error) {
           console.error("Project distribution fetch failed", error);
+        }
+      },
+
+      fetchAvailableEmployees: async (monthThreshold = 8) => {
+        try {
+          const res = await getAvailableEmployees(monthThreshold);
+          set({ availableEmployees: res });
+        } catch (error) {
+          console.error("Available employees fetch failed", error);
         }
       },
 
@@ -480,6 +490,14 @@
           pinned: false,
           size: 'wide',
           data: {},
+        },
+        {
+          id: 'available-employees',
+          title: 'Available Employees',
+          type: 'available-employees',
+          pinned: false,
+          size: 'wide',
+          data: {},
         }
       ],
 
@@ -661,7 +679,9 @@
           dynamicData: state.dynamicData,         
           showDynamicUI: state.showDynamicUI,     
           userQuery: state.userQuery,
-          uploadedData: state.uploadedData, 
+          uploadedData: state.uploadedData,
+          projectDistribution: state.projectDistribution,
+          availableEmployees: state.availableEmployees,
         }),
 
         

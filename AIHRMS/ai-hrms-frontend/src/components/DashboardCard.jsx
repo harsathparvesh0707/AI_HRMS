@@ -79,6 +79,8 @@ const DashboardCard = ({ card, activeId }) => {
         return <BarChart2 className="w-4 h-4" />;
       case 'project-occupancy':
         return <BarChart2 className="w-4 h-4" />;
+      case 'available-employees':
+        return <Users className="w-4 h-4" />;
       case 'recruitment':
         return <UserCheck className="w-4 h-4" />;
       case 'payroll':
@@ -1004,6 +1006,86 @@ const projectDatas =
           </div>
         );
 
+      case 'available-employees':
+        const { availableEmployees } = useStore.getState();
+        const availableData = availableEmployees?.data || [];
+        
+        // Separate free and ending soon employees
+        const freeEmployees = availableData.filter(emp => emp.deployment === 'free');
+        const endingSoonEmployees = availableData.filter(emp => emp.deployment !== 'free');
+        
+        return (
+          <div className="py-2">
+
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                  {freeEmployees.length}
+                </div>
+                <div className="text-[10px] text-green-700 dark:text-green-300">
+                  Free Pool
+                </div>
+              </div>
+              <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-center">
+                <div className="text-lg font-bold text-orange-600 dark:text-orange-400">
+                  {endingSoonEmployees.length}
+                </div>
+                <div className="text-[10px] text-orange-700 dark:text-orange-300">
+                  Ending Soon
+                </div>
+              </div>
+            </div>
+            
+            {/* Employee List */}
+            <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
+              {availableData.map((emp, idx) => (
+                <motion.div
+                  key={emp.employee_id || idx}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.03 }}
+                  className="flex items-center gap-2 p-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                      {emp.display_name}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                        {emp.designation}
+                      </p>
+                      <span className="text-[10px] text-slate-400">•</span>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {emp.total_exp}
+                      </p>
+                    </div>
+                  </div>
+                  {emp.deployment !== 'free' && (
+                    <p className="px-1 py-[1px] bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-[10px] font-medium leading-none">
+                      {emp.projects[0].project_name}
+                    </p>
+                  )}
+
+                  <div
+                    className={`px-1 py-[1px] rounded text-[9px] font-medium leading-none ${
+                      emp.deployment === 'free'
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                        : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
+                    }`}
+                  >
+                    {emp.deployment === 'free' ? 'Freepool' : 'Ending Soon'}
+                  </div>
+                </motion.div>
+              ))}
+              {availableData.length === 0 && (
+                <div className="text-center py-4 text-slate-500 dark:text-slate-400 text-xs">
+                  No available employees found
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
       default:
         return <div className="py-2 text-xs">No data available</div>;
     }
@@ -1092,7 +1174,7 @@ const projectDatas =
       {(card.type === 'attendance' || card.type === 'leave' || card.type === 'recruitment' ||
         card.type === 'payroll' || card.type === 'approvals' || card.type === 'department' ||
         card.type === 'employee-list' || card.type === 'leave-requests' || card.type === 'performance-list' ||
-        card.type === 'project-occupancy') && (
+        card.type === 'project-occupancy' || card.type === 'available-employees') && (
         <div className="px-3 pb-3">
           <button
             className={`w-full py-1.5 px-3 bg-gradient-to-r ${colors.gradient} text-white rounded-lg ${colors.gradientHover} transition-all font-medium text-xs`}
