@@ -7,33 +7,49 @@ from typing import List
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables"""
-    
+    # --------------------
     # Database
-    database_url: str = "postgresql://postgres:postgres%40123@localhost:5432/hrms_vector_db"
-    
-    # LLM Configuration
-    ollama_model: str = "qwen2:0.5b"
-    ollama_base_url: str = "http://localhost:11434"
+    # --------------------
+    database_url: str
+
+    # --------------------
+    # Redis
+    # --------------------
+    redis_host: str
+    redis_port: int
+
+    # --------------------
+    # Ollama
+    # --------------------
+    ollama_model: str
+    ollama_base_url: str
     ollama_timeout: int = 30
-    
-    # Vector Database
-    vector_persist_dir: str = "./chroma_db"
-    embedding_model: str = "all-MiniLM-L6-v2"
-    
-    # RAG + Hybrid Search Configuration
-    gemini_api_key: str = "AIzaSyDpBuzaSqef2cL9UbXCvIIKLYkkGszs-no"
+
+    # --------------------
+    # Vector DB
+    # --------------------
+    vector_persist_dir: str
+    embedding_model: str
+
+    # --------------------
+    # RAG
+    # --------------------
+    gemini_api_key: str
     use_hybrid_search: str = "true"
-    
-    # API Configuration
+
+    # --------------------
+    # API
+    # --------------------
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     debug: bool = False
     log_level: str = "INFO"
-    
+
+    # --------------------
     # CORS
+    # --------------------
     allowed_origins: List[str] = ["*"]
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = False
@@ -41,9 +57,7 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    """Get cached settings instance"""
     return Settings()
 
 
-# Global settings instance
 settings = get_settings()

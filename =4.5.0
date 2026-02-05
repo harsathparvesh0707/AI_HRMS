@@ -1,0 +1,2 @@
+Requirement already satisfied: redis in ./venv/lib/python3.10/site-packages (7.1.0)
+Requirement already satisfied: async-timeout>=4.0.3 in ./venv/lib/python3.10/site-packages (from redis) (5.0.1)

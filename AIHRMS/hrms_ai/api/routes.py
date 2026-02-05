@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, WebSocket, WebSocketDisconnect, Query
 from typing import Dict, Any
 import logging
 from ..services.ai_search_service import AISearchService
@@ -6,10 +6,18 @@ from ..services.ai_search_service import AISearchService
 logger = logging.getLogger(__name__)
 from ..services.upload_service import UploadService
 from ..services.embedding_cache_service import EmbeddingCacheService
+from ..services.dashboard_service import DashboardService
 from ..models.schemas import (ChatRequest, ChatResponse, UploadResponse, QueryRequest, QueryResponse,
-                            SkillsUpdateRequest, ProjectsUpdateRequest, ProfileUpdateRequest, EmployeeResponse, ProjectsListResponse)
+                            SkillsUpdateRequest, ProjectsUpdateRequest, ProfileUpdateRequest, EmployeeResponse, ProjectsListResponse,
+                            ProjectDistributionResponse, DepartmentDistributionResponse, AvailableEmployeesResponse, LowOccupancyResponse
+                            , FreepoolCount)
 from .endpoints import health
 from ..celery.tasks import rebuild_embedding_cache
+from ..websocket.websocket import ws_manager
+from ..services.redis_broker import RedisMessageBroker
+from ..services.available_employees_service import AvailableEmployeesService
+from ..services.low_occupancy_service import LowOccupancyService
+import asyncio
 
 api_router = APIRouter()
 
@@ -19,6 +27,10 @@ api_router.include_router(health.router, tags=["health"])
 search_service = AISearchService()
 upload_service = UploadService()
 cache_service = EmbeddingCacheService()
+dashboard_service = DashboardService()
+broker = RedisMessageBroker()
+available_employees_service = AvailableEmployeesService()
+low_occupancy_service = LowOccupancyService()
 
 
 @api_router.post("/search", response_model=ChatResponse, tags=["search"])
@@ -480,3 +492,76 @@ async def update_employee_profile(employee_id: str, profile_data: ProfileUpdateR
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@api_router.get("/dashboard/project_distribution",  response_model=ProjectDistributionResponse, tags=["dashboard"])
+async def project_distribution():
+    try:
+        result = await dashboard_service.get_project_distribution(top_n=4)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@api_router.get("/dashboard/department_counts", response_model=DepartmentDistributionResponse, tags=["dashboard"])
+async def department_distribution():
+    try:
+        result = await dashboard_service.get_department_distribution()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+
+@api_router.get("/dashboard/count_data", response_model=FreepoolCount)
+async def get_dashboard_count():
+    try:
+        result = await dashboard_service.get_dashboard_count_details()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+
+@api_router.get("/available_employees", response_model=AvailableEmployeesResponse, tags=["employee-management"])
+async def find_available_employees(month_threshold: int = Query(3, ge=0)):
+    """Find employees who are currently free or whose projects are ending soon"""
+    try:
+        logger.info(f"🔍 Finding available employees with {month_threshold} months threshold")
+        result = available_employees_service.find_available_employees(months_threshold=month_threshold)
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error finding available employees: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api_router.get("/low_occupancy_employees", response_model=LowOccupancyResponse, tags=["employee-management"])
+async def find_low_occupancy_employees(occupancy_threshold: int = Query(7, ge=0, lt=100), long_term_extension_months: int = Query(25, ge=0, lt=100)) -> LowOccupancyResponse:
+    try:
+        result = low_occupancy_service.find_long_term_low_occupancy_employees(occupancy_threshold=occupancy_threshold,long_term_extension_months=long_term_extension_months)
+        return result
+
+    except Exception as e:
+        logger.exception("Error finding low occupancy employees")
+        raise HTTPException(status_code=400, detail=str(e))
+
+    
+@api_router.websocket("/ws/notification")
+async def websocket_connection(websocket: WebSocket):
+    logger.info("Connecting to Web Socket...")
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect as e:
+        logger.info(f"WebSocket disconnected (code={e.code})")
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}")
+    finally:
+        await ws_manager.disconnect(websocket)
+
+
+
+@api_router.on_event("startup")
+async def start_redis_listener():
+
+    async def handle_message(data: dict):
+        await ws_manager.broadcast(data)
+
+    asyncio.create_task(broker.subscribe(handle_message))

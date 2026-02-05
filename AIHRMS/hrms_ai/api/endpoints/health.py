@@ -3,7 +3,7 @@ Health check endpoints
 """
 from datetime import datetime
 from fastapi import APIRouter
-from models.schemas import HealthResponse
+from ...models.schemas import HealthResponse
 
 router = APIRouter()
 

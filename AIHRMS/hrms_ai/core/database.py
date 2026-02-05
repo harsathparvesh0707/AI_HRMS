@@ -74,6 +74,12 @@ def init_database():
                 conn.execute(text("ALTER TABLE employees DROP COLUMN IF EXISTS occupancy"))
             except Exception as e:
                 logger.info(f"Column removal info: {e}")
+
+            conn.execute(text("""
+                ALTER TABLE employees
+                ADD COLUMN IF NOT EXISTS committed_relieving_date DATE,
+                ADD COLUMN IF NOT EXISTS extended_relieving_date DATE;
+            """))
             
             # Create employee_projects table in public schema
             conn.execute(text("""
@@ -103,7 +109,8 @@ def init_database():
                 ADD COLUMN IF NOT EXISTS end_date DATE,
                 ADD COLUMN IF NOT EXISTS role VARCHAR(100),
                 ADD COLUMN IF NOT EXISTS deployment VARCHAR(100),
-                ADD COLUMN IF NOT EXISTS project_extended_end_date DATE
+                ADD COLUMN IF NOT EXISTS project_extended_end_date DATE,
+                ADD COLUMN IF NOT EXISTS project_committed_end_date DATE;
             """))
             
             # Create performance indexes for ultra-fast text search
