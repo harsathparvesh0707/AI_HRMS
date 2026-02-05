@@ -2379,6 +2379,7 @@ EMPLOYEES:
             if match:
                 final_ranked.append({
                     **emp,
+                    "ranked_by": "ai",
                     "ai_tier": match["tier"],
                     "ai_score": match["score"],
                     "ai_reason": match["reason"],
@@ -2388,6 +2389,7 @@ EMPLOYEES:
                 # Fallback if LLM missed this employee
                 final_ranked.append({
                     **emp,
+                    "ranked_by": "ai",
                     "ai_tier": 4,
                     "ai_score": 0.0,
                     "ai_reason": "No LLM-based reasoning available.",
