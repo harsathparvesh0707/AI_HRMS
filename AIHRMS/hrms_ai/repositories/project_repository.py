@@ -27,11 +27,11 @@ class ProjectRepository(BaseRepository):
         INSERT INTO employee_projects (
             employee_id, project_name, customer, project_department,
             project_industry, project_status, occupancy,
-            start_date, end_date, role, deployment, project_extended_end_date
+            start_date, end_date, role, deployment, project_extended_end_date, project_committed_end_date
         ) VALUES (
             :employee_id, :project_name, :customer, :project_department,
             :project_industry, :project_status, :occupancy,
-            :start_date, :end_date, :role, :deployment, :project_extended_end_date
+            :start_date, :end_date, :role, :deployment, :project_extended_end_date, :project_committed_end_date
         )
         """
         return self.execute_update(query, project_data) > 0
@@ -101,11 +101,11 @@ class ProjectRepository(BaseRepository):
         INSERT INTO employee_projects (
             employee_id, project_name, customer, project_department,
             project_industry, project_status, occupancy,
-            start_date, end_date, role, deployment, project_extended_end_date
+            start_date, end_date, role, deployment, project_extended_end_date, project_committed_end_date
         ) VALUES (
             :employee_id, :project_name, :customer, :project_department,
             :project_industry, :project_status, :occupancy,
-            :start_date, :end_date, :role, :deployment, :project_extended_end_date
+            :start_date, :end_date, :role, :deployment, :project_extended_end_date, :project_committed_end_date
         )
         """
         
@@ -125,3 +125,10 @@ class ProjectRepository(BaseRepository):
         ORDER BY p.created_at DESC
         """
         return self.execute_query(query)
+    
+    def get_employees_with_projects(self) -> List[Dict[str, Any]]:
+        return self.execute_query("""
+            SELECT e.*, p.*
+            FROM employees e
+            LEFT JOIN employee_projects p ON p.employee_id = e.employee_id
+        """)

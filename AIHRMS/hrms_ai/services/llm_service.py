@@ -4,8 +4,8 @@ LLM service for query processing using LangChain
 import logging
 from typing import Tuple, List
 import google.generativeai as genai
-from config.settings import settings
-from models.schemas import LLMResponse
+from ..config.settings import settings
+from ..models.schemas import LLMResponse
 import aiohttp, os, json
 
 logger = logging.getLogger(__name__)

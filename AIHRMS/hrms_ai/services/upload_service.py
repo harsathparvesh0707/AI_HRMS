@@ -68,6 +68,7 @@ class DatabaseManager:
         try:
             with get_db_session() as session:
                 for employee in employees_data:
+                    savepoint = session.begin_nested()
                     try:
                         columns = list(employee.keys())
                         values = [f":{col}" for col in columns]
@@ -78,8 +79,10 @@ class DatabaseManager:
                         """
                         
                         session.execute(text(sql), employee)
+                        savepoint.commit()
                         inserted += 1
                     except Exception as e:
+                        savepoint.rollback()
                         logger.error(f"Error inserting employee {employee.get('employee_id')}: {e}")
                         continue
                 
@@ -101,11 +104,13 @@ class DatabaseManager:
                 INSERT INTO employee_projects (
                     employee_id, project_name, customer, project_department, 
                     project_industry, project_status, occupancy,
-                    start_date, end_date, role, deployment, project_extended_end_date
+                    project_extended_end_date, project_committed_end_date,
+                    start_date, end_date, role, deployment
                 )
                 VALUES (:employee_id, :project_name, :customer, :project_department, 
                         :project_industry, :project_status, :occupancy,
-                        :start_date, :end_date, :role, :deployment, :project_extended_end_date)
+                        :project_extended_end_date, :project_committed_end_date,
+                        :start_date, :end_date, :role, :deployment)
                 """
                 
                 for project in projects_data:
@@ -121,11 +126,12 @@ class DatabaseManager:
                             'project_industry': project.get('project_industry', ''),
                             'project_status': project.get('project_status', 'active'),
                             'occupancy': project.get('occupancy', 0),
-                            'start_date': project.get('start_date'),
+                            'project_extended_end_date': project.get('project_extended_end_date'),
+                            'project_committed_end_date': project.get('project_committed_end_date'),
+                            'start_date': project.get('start_date', ''),
                             'end_date': project.get('end_date'),
                             'role': project.get('role', ''),
-                            'deployment': project.get('deployment', ''),
-                            'project_extended_end_date': project.get('project_extended_end_date')
+                            'deployment': project.get('deployment', '')
                         }
                         
                         session.execute(text(sql), clean_project)
@@ -228,7 +234,9 @@ class UploadService:
                     'emp_location': str(row.get('emp_location', '')).strip(),
                     'skill_set': str(row.get('skill_set', '')).strip(),
                     'rm_id': str(row.get('rm_id', '')).strip(),
-                    'rm_name': str(row.get('rm_name', '')).strip(), 
+                    'rm_name': str(row.get('rm_name', '')).strip(),
+                    'committed_relieving_date': self._parse_date(row.get('committed_relieving_date','')),
+                    'extended_relieving_date': self._parse_date(row.get('extended_relieving_date', ''))
                 }
             
             # Process project data
@@ -246,7 +254,8 @@ class UploadService:
                     'end_date': self._parse_date(row.get('end_date')),
                     'role': str(row.get('role', '')).strip(),
                     'deployment': str(row.get('deployment', '')).strip(),
-                    'project_extended_end_date': self._parse_date(row.get('project_extended_end_date'))
+                    'project_extended_end_date': self._parse_date(row.get('project_extended_end_date')),
+                    'project_committed_end_date': self._parse_date(row.get('project_committed_end_date'))
                 })
         
         return list(employees_data.values()), projects_data
@@ -282,7 +291,7 @@ class UploadService:
                 projects_result = session.execute(text("""
                     SELECT employee_id, project_name, customer, project_department, 
                            project_industry, project_status, occupancy,
-                           start_date, end_date, role, deployment, project_extended_end_date
+                           start_date, end_date, role, deployment, project_extended_end_date, project_committed_end_date
                     FROM employee_projects 
                     ORDER BY employee_id, created_at
                 """))
@@ -305,7 +314,8 @@ class UploadService:
                         "deployment": row.deployment,
                         "start_date": str(row.start_date) if row.start_date else None,
                         "end_date": str(row.end_date) if row.end_date else None,
-                        "project_extended_end_date": str(row.project_extended_end_date) if row.project_extended_end_date else None
+                        "project_extended_end_date": str(row.project_extended_end_date) if row.project_extended_end_date else None,
+                        "project_committed_end_date": str(row.project_committed_end_date) if row.project_committed_end_date else None
                     })
                 
                 # Build comprehensive response matching hrms_chatbot.py format

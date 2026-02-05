@@ -3,6 +3,7 @@ Pydantic models for request/response schemas
 """
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
+from datetime import date
 
 
 class LLMResponse(BaseModel):
@@ -110,9 +111,12 @@ class ProjectData(BaseModel):
     occupancy: int = 0
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+    committed_relieving_date: Optional[str] = None
+    extended_relieving_date: Optional[str] = None
+    project_committed_end_date: Optional[str] = None
+    project_extended_end_date: Optional[str] = None
     role: Optional[str] = ""
     deployment: Optional[str] = ""
-    project_extended_end_date: Optional[str] = None
 
 
 class SkillsUpdateRequest(BaseModel):
@@ -151,6 +155,9 @@ class ProjectResponse(BaseModel):
     deployment: Optional[str] = ""
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+    committed_relieving_date: Optional[str] = None
+    extended_relieving_date: Optional[str] = None
+    project_committed_end_date: Optional[str] = None
     project_extended_end_date: Optional[str] = None
 
 
@@ -158,3 +165,42 @@ class EmployeeResponse(BaseModel):
     status: str
     employee: Optional[Dict[str, Any]] = None
     message: Optional[str] = None
+
+class ProjectEmployeeCount(BaseModel):
+    project: str
+    employee_count: int
+
+
+class OthersEmployeeCount(BaseModel):
+    employee_count: int
+
+
+class ProjectDistributionResponse(BaseModel):
+    status: str
+    total_employees: int
+    projects: List[ProjectEmployeeCount]
+
+class DepartmentItem(BaseModel):
+    department: str
+    employee_count: int
+
+class DepartmentDistributionResponse(BaseModel):
+    status: str
+    departments: List[DepartmentItem]
+
+
+class AvailableEmployeesResponse(BaseModel):
+    status: str
+    month_threshold: int
+    data: List[Dict[str, Any]]
+
+class LowOccupancyResponse(BaseModel):
+    status: str
+    occupancy_threshold: int
+    long_term_extension_months: int
+    data: List[Dict[str, Any]]
+
+class FreepoolCount(BaseModel):
+    freepool_count: int
+    project_count: int
+    employee_count: int

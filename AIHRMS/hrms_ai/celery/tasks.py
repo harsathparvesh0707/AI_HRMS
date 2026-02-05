@@ -2,6 +2,7 @@ import asyncio
 import logging
 from .celery_app import celery_app
 from ..services.embedding_cache_service import EmbeddingCacheService
+from ..services.project_deadline_service import ProjectDeadlineService
 
 logger = logging.getLogger(__name__)
 
@@ -43,3 +44,13 @@ async def _async_cache_rebuild():
         logger.warning(f"⚠️ Post-upload cache rebuild had issues: {result.get('message', 'Unknown error')}")
         raise RuntimeError(result.get("message", "Cache rebuild failed"))
     logger.info(f"✅ Post-upload unified cache rebuild completed: {result.get('employees_processed', 0)} employees")
+
+@celery_app.task(
+    name = "check_project_deadlines",
+    bind = True,
+    autoretry_for = (Exception,),
+    retry_kwargs = {"max_retries": 3, "countdown": 30}
+)
+def check_project_deadlines(self):
+    logger.info("Checking project deadlines...")
+    asyncio.run(ProjectDeadlineService.process_project_deadlines())

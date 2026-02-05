@@ -919,7 +919,7 @@ class EnhancedSearchService:
                     text("""
                         SELECT project_name, customer, project_department, 
                                project_industry, project_status, occupancy,
-                               start_date, end_date, role, deployment, project_extended_end_date
+                               start_date, end_date, role, deployment, project_extended_end_date, project_committed_end_date
                         FROM employee_projects 
                         WHERE employee_id = :employee_id
                         ORDER BY created_at DESC
@@ -940,7 +940,8 @@ class EnhancedSearchService:
                         "deployment": row.deployment,
                         "start_date": str(row.start_date) if row.start_date else None,
                         "end_date": str(row.end_date) if row.end_date else None,
-                        "project_extended_end_date": str(row.project_extended_end_date) if row.project_extended_end_date else None
+                        "project_extended_end_date": str(row.project_extended_end_date) if row.project_extended_end_date else None,
+                        "project_committed_end_date": str(row.project_committed_end_date) if row.project_committed_end_date else None
                     })
                 
                 return projects
