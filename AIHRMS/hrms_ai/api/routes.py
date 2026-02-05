@@ -9,8 +9,8 @@ from ..services.embedding_cache_service import EmbeddingCacheService
 from ..services.dashboard_service import DashboardService
 from ..models.schemas import (ChatRequest, ChatResponse, UploadResponse, QueryRequest, QueryResponse,
                             SkillsUpdateRequest, ProjectsUpdateRequest, ProfileUpdateRequest, EmployeeResponse, ProjectsListResponse,
-                            ProjectDistributionResponse, DepartmentDistributionResponse, AvailableEmployeesResponse, LowOccupancyResponse
-                            , FreepoolCount)
+                            ProjectDistributionResponse, DepartmentDistributionResponse, AvailableEmployeesResponse, LowOccupancyResponse,
+                            FreepoolCount, EmployeeDirectoryResponse)
 from .endpoints import health
 from ..celery.tasks import rebuild_embedding_cache
 from ..websocket.websocket import ws_manager
@@ -539,6 +539,15 @@ async def find_low_occupancy_employees(occupancy_threshold: int = Query(7, ge=0,
 
     except Exception as e:
         logger.exception("Error finding low occupancy employees")
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@api_router.get("/dashboard/employee_directory", response_model=EmployeeDirectoryResponse, tags=["dashboard"])
+async def get_employee_directory():
+    try:
+        result = await dashboard_service.get_employees_directory()
+        return result
+    except Exception as e:
+        logger.error("Error while fetching employee directory")
         raise HTTPException(status_code=400, detail=str(e))
 
     

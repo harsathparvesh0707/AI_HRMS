@@ -104,3 +104,20 @@ class DashboardService:
         except Exception as e:
             logger.error(f"Failed to fetch counts: {str(e)}")
             raise
+
+    async def get_employees_directory(self):
+        try:
+            with get_db_session() as db:
+                row = db.execute(
+                    text("""
+                        SELECT employee_id, display_name, employee_department, designation, tech_group, emp_location FROM employees;
+                    """)
+                ).mappings().all()
+            employees = list(row)
+            return {
+                "status": "success",
+                "employees": employees
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch data: {str(e)}")
+            raise

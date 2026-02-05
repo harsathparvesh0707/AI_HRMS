@@ -204,3 +204,7 @@ class FreepoolCount(BaseModel):
     freepool_count: int
     project_count: int
     employee_count: int
+
+class EmployeeDirectoryResponse(BaseModel):
+    status: str
+    employees: List[Dict[str, Any]]
