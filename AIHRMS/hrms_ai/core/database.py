@@ -72,12 +72,14 @@ def init_database():
                 conn.execute(text("ALTER TABLE employees DROP COLUMN IF EXISTS role"))
                 conn.execute(text("ALTER TABLE employees DROP COLUMN IF EXISTS deployment"))
                 conn.execute(text("ALTER TABLE employees DROP COLUMN IF EXISTS occupancy"))
+                conn.execute(text("ALTER TABLE employees DROP COLUMN IF EXISTS joined_date"))
             except Exception as e:
                 logger.info(f"Column removal info: {e}")
 
             conn.execute(text("""
                 ALTER TABLE employees
                 ADD COLUMN IF NOT EXISTS committed_relieving_date DATE,
+                ADD COLUMN IF NOT EXISTS joined_date DATE,
                 ADD COLUMN IF NOT EXISTS extended_relieving_date DATE;
             """))
             
@@ -110,6 +112,7 @@ def init_database():
                 ADD COLUMN IF NOT EXISTS role VARCHAR(100),
                 ADD COLUMN IF NOT EXISTS deployment VARCHAR(100),
                 ADD COLUMN IF NOT EXISTS project_extended_end_date DATE,
+                ADD COLUMN IF NOT EXISTS project_joined_date DATE,
                 ADD COLUMN IF NOT EXISTS project_committed_end_date DATE;
             """))
             
