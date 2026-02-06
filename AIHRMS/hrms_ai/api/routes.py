@@ -532,9 +532,9 @@ async def find_available_employees(month_threshold: int = Query(3, ge=0)):
 
 
 @api_router.get("/low_occupancy_employees", response_model=LowOccupancyResponse, tags=["employee-management"])
-async def find_low_occupancy_employees(occupancy_threshold: int = Query(7, ge=0, lt=100), long_term_extension_months: int = Query(25, ge=0, lt=100)) -> LowOccupancyResponse:
+async def find_low_occupancy_employees(occupancy_threshold: int = Query(50, ge=0, lt=100), long_term_extension_months: int = Query(36, ge=0)) -> LowOccupancyResponse:
     try:
-        result = low_occupancy_service.find_long_term_low_occupancy_employees(occupancy_threshold=occupancy_threshold,long_term_extension_months=long_term_extension_months)
+        result = low_occupancy_service.find_long_term_low_occupancy_employees(occupancy_threshold=occupancy_threshold, long_term_extension_months=long_term_extension_months)
         return result
 
     except Exception as e:

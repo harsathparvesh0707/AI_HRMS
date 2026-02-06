@@ -105,12 +105,12 @@ class DatabaseManager:
                     employee_id, project_name, customer, project_department, 
                     project_industry, project_status, occupancy,
                     project_extended_end_date, project_committed_end_date,
-                    start_date, end_date, role, deployment
+                    start_date, end_date, role, deployment, project_joined_date
                 )
                 VALUES (:employee_id, :project_name, :customer, :project_department, 
                         :project_industry, :project_status, :occupancy,
                         :project_extended_end_date, :project_committed_end_date,
-                        :start_date, :end_date, :role, :deployment)
+                        :start_date, :end_date, :role, :deployment, :project_joined_date)
                 """
                 
                 for project in projects_data:
@@ -131,7 +131,8 @@ class DatabaseManager:
                             'start_date': project.get('start_date', ''),
                             'end_date': project.get('end_date'),
                             'role': project.get('role', ''),
-                            'deployment': project.get('deployment', '')
+                            'deployment': project.get('deployment', ''),
+                            'project_joined_date': project.get('project_joined_date', '')
                         }
                         
                         session.execute(text(sql), clean_project)
@@ -235,6 +236,7 @@ class UploadService:
                     'skill_set': str(row.get('skill_set', '')).strip(),
                     'rm_id': str(row.get('rm_id', '')).strip(),
                     'rm_name': str(row.get('rm_name', '')).strip(),
+                    'joined_date': str(row.get('joined_date', '')).strip(),
                     'committed_relieving_date': self._parse_date(row.get('committed_relieving_date','')),
                     'extended_relieving_date': self._parse_date(row.get('extended_relieving_date', ''))
                 }
@@ -254,6 +256,7 @@ class UploadService:
                     'end_date': self._parse_date(row.get('end_date')),
                     'role': str(row.get('role', '')).strip(),
                     'deployment': str(row.get('deployment', '')).strip(),
+                    'project_joined_date': str(row.get('project_joined_date', '')).strip(),
                     'project_extended_end_date': self._parse_date(row.get('project_extended_end_date')),
                     'project_committed_end_date': self._parse_date(row.get('project_committed_end_date'))
                 })
@@ -291,7 +294,7 @@ class UploadService:
                 projects_result = session.execute(text("""
                     SELECT employee_id, project_name, customer, project_department, 
                            project_industry, project_status, occupancy,
-                           start_date, end_date, role, deployment, project_extended_end_date, project_committed_end_date
+                           start_date, end_date, role, deployment, project_joined_date, project_extended_end_date, project_committed_end_date
                     FROM employee_projects 
                     ORDER BY employee_id, created_at
                 """))
@@ -314,6 +317,7 @@ class UploadService:
                         "deployment": row.deployment,
                         "start_date": str(row.start_date) if row.start_date else None,
                         "end_date": str(row.end_date) if row.end_date else None,
+                        "project_joined_date": str(row.project_joined_date) if row.project_joined_date else None,
                         "project_extended_end_date": str(row.project_extended_end_date) if row.project_extended_end_date else None,
                         "project_committed_end_date": str(row.project_committed_end_date) if row.project_committed_end_date else None
                     })
@@ -344,6 +348,7 @@ class UploadService:
                         "occupancy": employee.get('occupancy', 0),  # Keep for backward compatibility
                         "total_project_occupancy": total_project_occupancy,
                         "available_capacity": available_capacity,
+                        "joined_date": employee.get('joined_date', ''),
                         "total_exp": employee.get('total_exp', ''),
                         "vvdn_exp": employee.get('vvdn_exp', ''),
                         "designation": employee.get('designation', ''),

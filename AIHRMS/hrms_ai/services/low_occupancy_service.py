@@ -5,6 +5,7 @@ import logging
 from datetime import date
 from ..repositories.project_repository import ProjectRepository
 import re
+from dateutil.relativedelta import relativedelta
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,7 @@ class LowOccupancyService:
                     "occupancy": 0,
                     "total_project_occupancy": 0,
                     "available_capacity": 100,
+                    "joined_date": row.get("joined_date"),
                     "total_exp": row.get("total_exp", ""),
                     "vvdn_exp": row.get("vvdn_exp", ""),
                     "designation": row.get("designation", ""),
@@ -116,6 +118,7 @@ class LowOccupancyService:
                     "deployment": row.get("deployment"),
                     "start_date": row.get("start_date"),
                     "end_date": row.get("end_date"),
+                    "project_joined_date": row.get("project_joined_date"),
                     "project_extended_end_date": row.get("project_extended_end_date"),
                     "project_committed_end_date": row.get("project_committed_end_date"),
                 }
@@ -167,49 +170,77 @@ class LowOccupancyService:
                 "data": [],
             }
 
+        # Groups flat SQL rows into { emp_id: { ..., projects: [...] } }
         employees = self.normalize_employees_with_projects(raw_rows)
-
+        
         today = date.today()
-        long_term_days = long_term_extension_months * 30
         result: List[Dict[str, Any]] = []
 
         for emp in employees:
-            # ---- exclude trainees / directors ----
+            # 1. Basic Exclusions (Exclude Senior Management and Trainees)
             designation = (emp.get("designation") or "").lower()
-            if "director" in designation or "trainee" in designation:
+            if any(keyword in designation for keyword in ["director", "trainee", "manager"]):
                 continue
 
-            # ---- must have at least one project ----
-            if not emp.get("projects"):
+            projects = emp.get("projects", [])
+            if not projects:
                 continue
 
-            # ---- total occupancy (employee-level) ----
-            total_occupancy = emp.get("occupancy", 0)
-            if total_occupancy > occupancy_threshold:
-                continue
+            # Tracking flags for this specific employee
+            # We start with None and only assign a rank if they meet the project-specific criteria
+            assigned_rank = None 
+            
+            # We need to know if they have a 'FREE' project at all for Scenario 1
+            has_free_pool_anywhere = any(
+                "FREE" in str(p.get("project_name") or p.get("project") or "").upper() 
+                for p in projects
+            )
 
-            # ---- effective end date across ALL projects ----
-            effective_end = self._get_effective_end_date_from_employee(emp)
-            if not effective_end:
-                continue
+            # 2. Project-Level Validation
+            # We check each project to see if THAT SPECIFIC project is low occupancy AND long tenure
+            for proj in projects:
+                pj_date = proj.get("project_joined_date")
+                if not pj_date:
+                    continue
+                # Calculate tenure for THIS specific project
+                diff = relativedelta(today, pj_date)
+                months_passed = (diff.years * 12) + diff.months
+                
+                proj_occupancy = proj.get("occupancy", 0)
+                deployment = str(proj.get("deployment", "")).strip()
 
-            if (effective_end - today).days < long_term_days:
-                continue
+                # CRITERIA: This specific project must be low occupancy AND older than the threshold months
+                if proj_occupancy <= occupancy_threshold and months_passed >= long_term_extension_months:
+                    
+                    # Scenario 1 (Highest Priority):
+                    # Qualifying project found AND the employee has another project marked as FREE
+                    if has_free_pool_anywhere:
+                        assigned_rank = 0
+                        break # Rank 0 is the highest possible, we can stop checking projects
+                    
+                    # Scenario 2 (Second Priority):
+                    # Qualifying project found AND its deployment is internal/budgeted/shadow
+                    elif deployment.lower() in ["randd internal budgeted", "shadow"]:
+                        # We assign Rank 1 but keep looking in case another project gives them Rank 0
+                        assigned_rank = 1
 
-            # ---- experience (sorting only) ----
-            emp["_total_exp_years"] = self._parse_total_exp_years(emp.get("total_exp"))
-            result.append(emp)
+            # 3. FILTERING: Only add to result if they were assigned Rank 0 or Rank 1
+            if assigned_rank is not None:
+                emp["_rank_score"] = assigned_rank
+                emp["_total_exp_years"] = self._parse_total_exp_years(emp.get("total_exp"))
+                result.append(emp)
 
-        # ---- sorting ----
+        # 4. SORTING: Priority Rank (0 then 1), then Experience (Descending)
         result.sort(
             key=lambda e: (
-                -e.get("_total_exp_years", 0),
-                e.get("designation") or "",
+                e.get("_rank_score"), 
+                -e.get("_total_exp_years", 0)
             )
         )
 
-        # ---- cleanup ----
+        # Cleanup internal keys
         for emp in result:
+            emp.pop("_rank_score", None)
             emp.pop("_total_exp_years", None)
 
         return {
