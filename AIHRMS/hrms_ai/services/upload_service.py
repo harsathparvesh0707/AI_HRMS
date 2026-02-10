@@ -236,9 +236,9 @@ class UploadService:
                     'skill_set': str(row.get('skill_set', '')).strip(),
                     'rm_id': str(row.get('rm_id', '')).strip(),
                     'rm_name': str(row.get('rm_name', '')).strip(),
-                    'joined_date': str(row.get('joined_date', '')).strip(),
-                    'committed_relieving_date': self._parse_date(row.get('committed_relieving_date','')),
-                    'extended_relieving_date': self._parse_date(row.get('extended_relieving_date', ''))
+                    'joined_date': self._parse_date(row.get('joined_date')),
+                    'committed_relieving_date': self._parse_date(row.get('committed_relieving_date')),
+                    'extended_relieving_date': self._parse_date(row.get('extended_relieving_date'))
                 }
             
             # Process project data
@@ -256,7 +256,7 @@ class UploadService:
                     'end_date': self._parse_date(row.get('end_date')),
                     'role': str(row.get('role', '')).strip(),
                     'deployment': str(row.get('deployment', '')).strip(),
-                    'project_joined_date': str(row.get('project_joined_date', '')).strip(),
+                    'project_joined_date': self._parse_date(row.get('project_joined_date')),
                     'project_extended_end_date': self._parse_date(row.get('project_extended_end_date')),
                     'project_committed_end_date': self._parse_date(row.get('project_committed_end_date'))
                 })
