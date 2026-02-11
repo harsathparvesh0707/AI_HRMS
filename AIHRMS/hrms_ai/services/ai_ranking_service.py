@@ -2632,6 +2632,8 @@ EMPLOYEES:
 
         if not pre_ranked:
             return pre_ranked
+        
+        start_time = time.time()
 
         profiles_text = "\n".join(
             f"{emp['employee_id']} | TIER {emp['ai_tier']} | SCORE {emp['ai_score']} | "
@@ -2727,7 +2729,8 @@ EMPLOYEES WITH EXISTING SCORES:
                 # Fallback: use existing or generate basic reason
                 if "ai_reason" not in emp or not emp.get("ai_reason"):
                     emp["ai_reason"] = f"No LLM reasoning available"
-
+        
+        logger.info(f"🏁 LLM reasoning completed for {len(pre_ranked)} employees in {time.time() - start_time:.2f}s")
         return pre_ranked
 
 
