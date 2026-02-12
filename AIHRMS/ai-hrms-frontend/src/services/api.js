@@ -3,7 +3,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 
 export async function searchAPI(query) {
-    const response = await fetch(`${BASE_URL}/search-rank`, 
+    const response = await fetch(`${BASE_URL}/search-rank-simplified-new`, 
     {
       method: 'POST',
       headers: {
