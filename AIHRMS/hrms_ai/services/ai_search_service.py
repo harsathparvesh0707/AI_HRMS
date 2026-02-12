@@ -1549,6 +1549,8 @@ class AISearchService:
                 parsed_query.get('location'),
                 parsed_query.get('department'),
                 parsed_query.get('employee_name'),
+                parsed_query.get('experience_min'),
+                parsed_query.get('experience_max')
             ])
 
             is_generic = not has_structured_filters and len(query.split()) <= 5
