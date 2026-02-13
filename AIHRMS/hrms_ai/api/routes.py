@@ -10,7 +10,7 @@ from ..services.dashboard_service import DashboardService
 from ..models.schemas import (ChatRequest, ChatResponse, UploadResponse, QueryRequest, QueryResponse,
                             SkillsUpdateRequest, ProjectsUpdateRequest, ProfileUpdateRequest, EmployeeResponse, ProjectsListResponse,
                             ProjectDistributionResponse, DepartmentDistributionResponse, AvailableEmployeesResponse, LowOccupancyResponse,
-                            FreepoolCount, EmployeeDirectoryResponse)
+                            FreepoolCount, EmployeeDirectoryResponse, DeploymentFilter)
 from .endpoints import health
 from ..celery.tasks import rebuild_embedding_cache
 from ..websocket.websocket import ws_manager
@@ -388,6 +388,17 @@ async def get_query_analytics() -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 # Employee Management APIs
+@api_router.get("/employees", tags=["employee-management"])
+async def get_all_employees(page: int = Query(1, ge=1), page_size: int = Query(10, ge=1)) -> Dict[str, Any]:
+    """Get All Employees"""
+    try:
+        result = await upload_service.get_all_employee_details(page, page_size)
+        return result
+    except Exception as e:
+        logger.error(f"Failed to fetch all employee details: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @api_router.get("/employees/{employee_id}", tags=["employee-management"])
 async def get_employee(employee_id: str) -> Dict[str, Any]:
     """Get employee details with all projects"""
@@ -494,6 +505,7 @@ async def update_employee_profile(employee_id: str, profile_data: ProfileUpdateR
 
 @api_router.get("/dashboard/project_distribution",  response_model=ProjectDistributionResponse, tags=["dashboard"])
 async def project_distribution():
+    """API for total_project count and top-most aligned projects"""
     try:
         result = await dashboard_service.get_project_distribution(top_n=4)
         return result
@@ -502,6 +514,7 @@ async def project_distribution():
     
 @api_router.get("/dashboard/department_counts", response_model=DepartmentDistributionResponse, tags=["dashboard"])
 async def department_distribution():
+    """Departments and Employee Counts"""
     try:
         result = await dashboard_service.get_department_distribution()
         return result
@@ -511,10 +524,21 @@ async def department_distribution():
 
 @api_router.get("/dashboard/count_data", response_model=FreepoolCount)
 async def get_dashboard_count():
+    """Freepool, Employee and Projects Count"""
     try:
         result = await dashboard_service.get_dashboard_count_details()
         return result
     except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@api_router.get("/dashboard/employees_deployment", tags=["employee-management"])
+async def get_employees_deployment_wise(deployment: DeploymentFilter = Query(...), page: int = Query(1, ge=1), page_size: int = Query(10, ge=1)):
+    """Get Employee Details deployment wise"""
+    try:
+        result = await dashboard_service.get_employees_deployment_wise(deployment, page, page_size)
+        return result
+    except Exception as e:
+        logger.error(str(e))
         raise HTTPException(status_code=400, detail=str(e))
     
 
@@ -533,6 +557,7 @@ async def find_available_employees(month_threshold: int = Query(3, ge=0)):
 
 @api_router.get("/low_occupancy_employees", response_model=LowOccupancyResponse, tags=["employee-management"])
 async def find_low_occupancy_employees(occupancy_threshold: int = Query(50, ge=0, lt=100), long_term_extension_months: int = Query(36, ge=0)) -> LowOccupancyResponse:
+    """Find low occupancy employees based on occupancy and months threshold"""
     try:
         result = low_occupancy_service.find_long_term_low_occupancy_employees(occupancy_threshold=occupancy_threshold, long_term_extension_months=long_term_extension_months)
         return result
@@ -541,8 +566,9 @@ async def find_low_occupancy_employees(occupancy_threshold: int = Query(50, ge=0
         logger.exception("Error finding low occupancy employees")
         raise HTTPException(status_code=400, detail=str(e))
     
-@api_router.get("/dashboard/employee_directory", response_model=EmployeeDirectoryResponse, tags=["dashboard"])
+@api_router.get("/dashboard/employee_directory", response_model=EmployeeDirectoryResponse, tags=["employee-management"])
 async def get_employee_directory():
+    """Employee Directory Data"""
     try:
         result = await dashboard_service.get_employees_directory()
         return result

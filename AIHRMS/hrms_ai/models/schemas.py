@@ -4,6 +4,16 @@ Pydantic models for request/response schemas
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from datetime import date
+from enum import Enum
+
+# Enums
+class DeploymentFilter(str, Enum):
+    freepool = "freepool"
+    internal = "internal"
+    budgetted = "budgetted"
+    billable = "billable"
+    client_backup = "client_backup"
+    shadow = "shadow"
 
 
 class LLMResponse(BaseModel):

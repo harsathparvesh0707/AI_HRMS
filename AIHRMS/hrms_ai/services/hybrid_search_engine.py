@@ -2508,6 +2508,7 @@ class HybridSearchEngine:
             from hrms_ai.repositories.employee_repository import EmployeeRepository
             repo = EmployeeRepository()
             tech_groups = repo.get_all_tech_groups()
+            departments = repo.get_all_departments()
 
             # Create simplified mapping - only backend/frontend get generalized
             simplified_groups = set()
@@ -2539,6 +2540,9 @@ class HybridSearchEngine:
             You are parsing for an enterprise HR database that uses these GENERAL TECH CATEGORIES:
             {sorted(simplified_groups)}
 
+            AVAILABLE DEPARTMENTS (official names):
+            {departments}
+
             Your task: interpret the query and map it to the most relevant general category above.
 
             Extract and infer the following keys if mentioned or implied:
@@ -2554,6 +2558,12 @@ class HybridSearchEngine:
             - project_search: true if looking for people who worked on a project
             - employee_name: name if specific person requested
             - skill_precision: "strict" if user specifies exact skill or says "exact match"
+
+            If the query mentions a department using a short name or keyword 
+            (e.g., "cloud", "vision", "acc"), map it to the most relevant official department name above.
+            If no department is clearly mentioned, do not set the department field
+
+            Only use department values from the AVAILABLE DEPARTMENTS list.
 
             Rules for interpreting natural-language queries:
             1. Words like “employees”, “people”, “candidates”, “engineers”, “developers”, 
@@ -2616,6 +2626,44 @@ class HybridSearchEngine:
                 
                 if response and response.text:
                     parsed = json.loads(response.text.strip())
+
+                    query_lower = query.lower()
+
+                    # Normalize department aliases dynamically from DB
+                    department_alias_map = {}
+
+                    for dept in departments:
+                        dept_lower = dept.lower()
+
+                        # Create alias from first word
+                        first_word = dept_lower.split()[0]
+                        department_alias_map[first_word] = dept
+
+                        # Manual intelligent abbreviations
+                        if "cloud" in dept_lower:
+                            department_alias_map["cloud"] = dept
+                        if "vision" in dept_lower:
+                            department_alias_map["vision"] = dept
+                        if "adaptive" in dept_lower:
+                            department_alias_map["acc"] = dept
+                        if "compute" in dept_lower:
+                            department_alias_map["compute"] = dept
+
+                    # If LLM missed department → fix it
+                    if not parsed.get("department"):
+                        for alias, full_dept in department_alias_map.items():
+                            if alias in query_lower:
+                                parsed["department"] = full_dept
+                                logger.info(f"🏢 Department inferred deterministically: {full_dept}")
+                                break
+
+                    # Safety: If LLM returned invalid department → correct it
+                    elif parsed.get("department") not in departments:
+                        for dept in departments:
+                            if parsed["department"].lower() in dept.lower():
+                                parsed["department"] = dept
+                                logger.info(f"🏢 Department normalized to official name: {dept}")
+                                break
                     
                     # Post-process: Fix single word queries using DB data
                     query_words = query.strip().split()

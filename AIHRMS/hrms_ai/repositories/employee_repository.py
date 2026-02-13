@@ -118,3 +118,9 @@ class EmployeeRepository(BaseRepository):
             all_skills.update(skill_tokens)
         
         return list(all_skills)
+    
+    def get_all_departments(self) -> List[str]:
+        """Fetch all distinct departments from employee table."""
+        query = "SELECT DISTINCT employee_department FROM employees WHERE employee_department IS NOT NULL AND employee_department <> ''"
+        results = self.execute_query(query)
+        return [row["employee_department"] for row in results if row.get("employee_department")]
