@@ -121,3 +121,80 @@ class DashboardService:
         except Exception as e:
             logger.error(f"Failed to fetch data: {str(e)}")
             raise
+
+    async def get_employees_deployment_wise(self, deployment, page_number, page_size):
+        try:
+            offset = (page_number - 1) * page_size
+            deployment_map = {
+                "freepool": ["Free"],
+                "internal": [
+                    "Internal Budgeted",
+                    "RandD Internal Budgeted",
+                    "R and D Shadow"
+                ],
+                "budgetted": ["Budgeted"],
+                "billable": ["Billable"],
+                "client_backup": ["Client Backup"],
+                "shadow": ["Shadow"]
+            }
+            db_values = deployment_map.get(deployment.value)
+            with get_db_session() as db:
+                emp = db.execute(
+                    text(
+                        # """SELECT 
+                        #     e.*,
+                        #     COALESCE(
+                        #         json_agg(DISTINCT to_jsonb(ep))
+                        #         FILTER (WHERE ep.employee_id IS NOT NULL),
+                        #         '[]'::json
+                        #     ) AS projects
+
+                        # FROM employees e
+                        # JOIN employee_projects ep 
+                        #     ON e.employee_id = ep.employee_id
+
+                        # WHERE ep.deployment = ANY(:deployments)
+
+                        # GROUP BY e.employee_id
+                        # ORDER BY split_part(e.employee_id, '/', 2)::int
+                        # LIMIT :limit OFFSET :offset;"""
+                        """SELECT 
+                            e.*,
+                            COALESCE(
+                                json_agg(DISTINCT to_jsonb(ep))
+                                FILTER (WHERE ep.employee_id IS NOT NULL),
+                                '[]'::json
+                            ) AS projects
+
+                        FROM employees e
+
+                        LEFT JOIN employee_projects ep 
+                            ON e.employee_id = ep.employee_id
+
+                        WHERE EXISTS (
+                            SELECT 1 
+                            FROM employee_projects ep2
+                            WHERE ep2.employee_id = e.employee_id
+                            AND ep2.deployment = ANY(:deployments)
+                        )
+
+                        GROUP BY e.employee_id
+                        ORDER BY split_part(e.employee_id, '/', 2)::int
+                        LIMIT :limit OFFSET :offset;
+                        """), 
+                        {
+                            "deployments": db_values,
+                            "limit": page_size,
+                            "offset": offset
+                        }
+                    ).mappings().all()
+                
+            employees = [dict(row) for row in emp]
+
+            return {
+                "status": 200,
+                "employees": employees,
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch data from DB: {str(e)}")
+            raise

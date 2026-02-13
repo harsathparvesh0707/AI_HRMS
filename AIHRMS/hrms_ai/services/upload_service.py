@@ -755,3 +755,43 @@ class UploadService:
         except Exception as e:
             logger.error(f"Error updating profile: {e}")
             raise
+
+    async def get_all_employee_details(self, page_number: int, page_size: int) -> Dict[str, Any]:
+        """Get all Employee Details including Projects"""
+        try:
+            offset = (page_number - 1) * page_size
+            with get_db_session() as session:
+                result = session.execute(
+                    text(
+                        """
+                        SELECT 
+                            e.*,
+
+                            COALESCE(
+                                json_agg(DISTINCT to_jsonb(ep))
+                                FILTER (WHERE ep.employee_id IS NOT NULL),
+                                '[]'::json
+                            ) AS projects
+
+                        FROM employees e
+                        LEFT JOIN employee_projects ep 
+                            ON e.employee_id = ep.employee_id
+
+                        GROUP BY e.employee_id
+
+                        ORDER BY split_part(e.employee_id, '/', 2)::int
+                        LIMIT :limit OFFSET :offset;"""
+                    ),
+                    {
+                        "limit": page_size,
+                        "offset": offset
+                    }
+                ).mappings().all()
+            employees = [dict(row) for row in result]
+            return {
+                "status": 200,
+                "employees": employees
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch from DB: {str(e)}")
+            raise
