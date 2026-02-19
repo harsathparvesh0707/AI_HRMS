@@ -2424,6 +2424,7 @@ class HybridSearchEngine:
             - project_search: true if looking for people who worked on a project
             - employee_name: name if specific person requested
             - skill_precision: "strict" if user specifies exact skill or says "exact match"
+            - ranking: true or false
 
             Rules:
             1. IMPORTANT: Single words that are not technical terms should be treated as employee_name, NOT skills.
@@ -2439,6 +2440,20 @@ class HybridSearchEngine:
             4. Only use categories from the list above.
             5. Keep backend/frontend general, but mobile categories specific.
             6. If query is a single word and not a known technology, treat it as employee_name.
+            7. Determine if ranking is required:
+
+            Set "ranking": true when:
+            - The query implies quality comparison or prioritization
+            - Words like "skilled in", "strong in", "expert in", "best", 
+            "good at", "proficient", "experienced in"
+            - When it's for project requirement or hiring decision
+            - When matching strength matters
+
+            Set "ranking": false when:
+            - Query is simple listing like:
+            "list all", "show all", "get employees"
+            - Basic filtering without comparison intent
+            - Simple tech + department queries
 
             Return ONLY a valid JSON object with the extracted keys.
             """
@@ -2455,6 +2470,27 @@ class HybridSearchEngine:
                 
                 if response and response.text:
                     parsed = json.loads(response.text.strip())
+                    
+
+                    # Checking query is for ranking or listing
+                    if "ranking" not in parsed:
+                        parsed["ranking"] = False
+
+                    query_lower = query.lower()
+
+                    ranking_keywords = [
+                        "skilled", "strong", "expert", "best", "proficient",
+                        "experienced", "good at", "project requirement",
+                        "project need", "hiring", "priority"
+                    ]
+
+                    if any(word in query_lower for word in ranking_keywords):
+                        parsed["ranking"] = True
+                        logger.info("📊 Ranking inferred deterministically from keywords")
+
+                    if parsed.get("ranking") == False:
+                        return parsed
+
                     
                     # Post-process: Fix single word queries using DB data
                     query_words = query.strip().split()
@@ -2552,16 +2588,18 @@ class HybridSearchEngine:
             - experience_max: integer years
             - deployment: one of [free, billable, support, budgeted]
             - location: city or work location
-            - department: department name
+            - department: department name (ONLY if explicitly mentioned in the query)
             - designation: like engineer, sr engineer etc.
             - project: project name/code if mentioned
             - project_search: true if looking for people who worked on a project
             - employee_name: name if specific person requested
             - skill_precision: "strict" if user specifies exact skill or says "exact match"
+            - ranking: true or false
 
             If the query mentions a department using a short name or keyword 
             (e.g., "cloud", "vision", "acc"), map it to the most relevant official department name above.
-            If no department is clearly mentioned, do not set the department field
+            If department is not explicitly mentioned in the query text, NEVER set the department field.
+            Do not infer department from skill, tech group, or domain.
 
             Only use department values from the AVAILABLE DEPARTMENTS list.
 
@@ -2598,11 +2636,23 @@ class HybridSearchEngine:
 
             9. If a skill is used in multiple domains (like JavaScript), include all applicable contexts
             (e.g. "js", "javascript" → frontend + backend + Full stack, "react" → frontend + backend + full stack, "dart" -> android + ios + hybrid).
-
             - If a skill is unknown, the LLM should decide whether it is backend, frontend, or fullstack by its naming pattern or typical industry usage.
-
             - Do NOT infer unrelated contexts (e.g., do not map backend skills to mobile).
 
+            10. Determine if ranking is required:
+
+            Set "ranking": true when:
+            - The query implies quality comparison or prioritization
+            - Words like "skilled in", "strong in", "expert in", "best", 
+            "good at", "proficient", "experienced in"
+            - When it's for project requirement or hiring decision
+            - When matching strength matters
+
+            Set "ranking": false when:
+            - Query is simple listing like:
+            "list all", "show all", "get employees"
+            - Basic filtering without comparison intent
+            - Simple tech + department queries
 
             Only set the fields:
                     project
@@ -2627,7 +2677,24 @@ class HybridSearchEngine:
                 if response and response.text:
                     parsed = json.loads(response.text.strip())
 
+                    # Checking query is for ranking or listing
+                    if "ranking" not in parsed:
+                        parsed["ranking"] = False
+
                     query_lower = query.lower()
+
+                    ranking_keywords = [
+                        "skilled", "strong", "expert", "best", "proficient",
+                        "experienced", "good at", "project requirement",
+                        "project need", "hiring", "priority"
+                    ]
+
+                    if any(word in query_lower for word in ranking_keywords):
+                        parsed["ranking"] = True
+                        logger.info("📊 Ranking inferred deterministically from keywords")
+
+                    if parsed.get("ranking") == False:
+                        return parsed
 
                     # Normalize department aliases dynamically from DB
                     department_alias_map = {}
@@ -3216,3 +3283,200 @@ class HybridSearchEngine:
         except Exception as e:
             logger.error(f"❌ Simplified SQL search error: {e}")
             return []
+        
+    async def _listing_query_generation(self, parsed_query: Dict[str, Any], query: str):
+        try:
+            schema_prompt = """
+                You are generating a PostgreSQL SELECT query.
+
+                STRICT RULES:
+                - Always SELECT from employees e
+                - Always LEFT JOIN employee_projects ep ON e.employee_id = ep.employee_id
+                - Always include projects as JSON aggregation using json_agg + jsonb_build_object
+                - Always GROUP BY e.employee_id
+                - Always ORDER BY split_part(e.employee_id, '/', 2)::int
+                - NEVER modify data (no INSERT, UPDATE, DELETE, DROP, TRUNCATE)
+                - NEVER remove the JSON aggregation
+                - NEVER change SELECT structure
+                - ONLY modify the WHERE clause
+                - Always start WHERE with: WHERE 1=1
+                - Use ILIKE for text filtering unless strict match required
+                - When filtering total_exp always use:
+                CAST(e.total_exp AS INTEGER)
+                - Return ONLY raw SQL
+                - Do NOT explain anything
+
+                DATABASE TABLES:
+
+                employees:
+                - employee_id
+                - display_name
+                - employee_department
+                - designation
+                - tech_group
+                - emp_location
+                - skill_set
+                - total_exp
+
+                employee_projects:
+                - id
+                - employee_id
+                - project_name
+                - deployment
+                - role
+                - customer
+                - project_department
+                - project_industry
+                - project_status
+                - occupancy
+                - start_date
+                - end_date
+            """
+            prompt = f"""
+            {schema_prompt}
+
+            FIXED QUERY STRUCTURE (DO NOT CHANGE THIS STRUCTURE):
+
+            SELECT 
+                e.*,
+                COALESCE(
+                    json_agg(
+                        jsonb_build_object(
+                            'id', ep.id,
+                            'project_name', ep.project_name,
+                            'customer', ep.customer,
+                            'project_department', ep.project_department,
+                            'project_industry', ep.project_industry,
+                            'project_status', ep.project_status,
+                            'occupancy', ep.occupancy,
+                            'start_date', ep.start_date,
+                            'end_date', ep.end_date,
+                            'role', ep.role,
+                            'deployment', ep.deployment
+                        )
+                    ) FILTER (WHERE ep.id IS NOT NULL),
+                    '[]'
+                ) AS projects
+            FROM employees e
+            LEFT JOIN employee_projects ep 
+                ON e.employee_id = ep.employee_id
+            WHERE 1=1
+            -- dynamic filters here
+            GROUP BY e.employee_id
+            ORDER BY split_part(e.employee_id, '/', 2)::int;
+
+            FILTER CONDITIONS (JSON):
+            {json.dumps(parsed_query, indent=2)}
+
+            Rules for WHERE clause:
+            - skills → filter using e.skill_set
+                If skill_precision="strict" → e.skill_set = 'skill'
+                Else → e.skill_set ILIKE '%skill%'
+            - context → filter e.tech_group ILIKE
+            - experience_min →
+                CAST(e.total_exp AS INTEGER) >= value
+            - experience_max →
+                CAST(e.total_exp AS INTEGER) <= value
+            - department → e.employee_department ILIKE
+            - designation → e.designation ILIKE
+            - location → e.emp_location ILIKE
+            - employee_name → e.display_name ILIKE
+            - deployment → ep.deployment ILIKE
+            - project → ep.project_name ILIKE
+            - project_search=true → ensure project filter exists
+            - If any filter field contains multiple values (array),
+            use OR between those values inside parentheses.
+
+            Example:
+            If context = ["backend", "full stack"]
+
+            Generate:
+            AND (
+                e.tech_group ILIKE '%backend%'
+                OR e.tech_group ILIKE '%full stack%'
+            )
+
+            - Never use AND between values of the same field.
+            - Use AND only between different fields.
+
+            SAMPLE INPUT JSON:
+
+            {{
+            "skills": ["react"],
+            "context": ["frontend"],
+            "experience_min": 3,
+            "location": "Bangalore",
+            "ranking": false
+            }}
+
+            SAMPLE OUTPUT SQL:
+
+            SELECT 
+                e.*,
+                COALESCE(
+                    json_agg(
+                        jsonb_build_object(
+                            'id', ep.id,
+                            'project_name', ep.project_name,
+                            'customer', ep.customer,
+                            'project_department', ep.project_department,
+                            'project_industry', ep.project_industry,
+                            'project_status', ep.project_status,
+                            'occupancy', ep.occupancy,
+                            'start_date', ep.start_date,
+                            'end_date', ep.end_date,
+                            'role', ep.role,
+                            'deployment', ep.deployment
+                        )
+                    ) FILTER (WHERE ep.id IS NOT NULL),
+                    '[]'
+                ) AS projects
+            FROM employees e
+            LEFT JOIN employee_projects ep 
+                ON e.employee_id = ep.employee_id
+            WHERE 1=1
+            AND e.skill_set ILIKE '%react%'
+            AND e.tech_group ILIKE '%frontend%'
+            AND CAST(e.total_exp AS INTEGER) >= 3
+            AND e.emp_location ILIKE '%Bangalore%'
+            GROUP BY e.employee_id
+            ORDER BY split_part(e.employee_id, '/', 2)::int;
+
+            Now generate the SQL query for the provided FILTER CONDITIONS.
+            Return ONLY the SQL query.
+            """
+            try:
+                response = self.llm.generate_content(
+                    prompt,
+                    generation_config={
+                        "temperature": 0.1,
+                        "max_output_tokens": 512
+                    }
+                )
+                sql_query = response.text.strip()
+                logger.info(sql_query)
+                return sql_query
+            except Exception as e:
+                logger.error(e)
+                return
+
+        except Exception as e:
+            logger.error(f"❌ Error while generating SQL Query for the input query: {e}")
+            return None
+        
+    async def _fetch_data_from_db(self, query: str):
+        try:
+            with get_db_session() as session:
+                employee = session.execute(
+                    text(query)
+                ).mappings().all()
+            result = [dict(row) for row in employee]
+            return {
+                "status": 200,
+                "ranking": False,
+                "total_results": len(result),
+                "employee": result
+            }
+        except Exception as e:
+            logger.error(f"Error while executing query: {e}")
+            raise

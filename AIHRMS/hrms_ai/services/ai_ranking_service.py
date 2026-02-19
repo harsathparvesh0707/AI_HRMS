@@ -1860,7 +1860,7 @@ EMPLOYEES:
         # EXTERNAL-HEAVY CODES (as per LLM prompt)
         # These are the codes that indicate heavy external client work
         # BIL = Billable, BU = Budgeted, BUD = Budgeted, IB = Internal Budgeted, CRD = Credited
-        external_heavy_codes = {"BIL", "BU", "BUD", "IB", "CRD"}
+        external_heavy_codes = {"BIL", "BU", "BUD", "CRD"}
         
         # OCCUPANCY THRESHOLD for external-heavy (as per LLM prompt)
         heavy_occupancy_threshold = 80
@@ -1973,8 +1973,8 @@ EMPLOYEES:
                         overall_score = 25.0
                     else:
                         # Senior with some availability → MODERATE SCORE
-                        tier = 2
-                        overall_score = 60.0
+                        llm_candidates.append(emp)
+                        continue
                 
                 # ============================================
                 # CALCULATE CRITERIA SCORES (for display only)
@@ -2097,8 +2097,17 @@ You are an expert HR evaluator performing PURE reasoning-style ranking using a P
 
 You must produce for each employee:
 1) A TIER (1–4)
-2) A concise 2-sentence HR reasoning
+2) Reasoning must be short justification why the employee received THIS tier and score. No filler words. No repetition.
 3) A set of numeric scores: Skill XX, TechGroup XX, Availability XX, Experience XX, OverallScore XX
+
+PRIORITY REASONING:
+- Do NOT explain skills.
+- Focus only on availability first, then Project, then Domain (If Needed).
+- Use one short priority-driven statement.
+Keep it extremely short.
+No comparison words.
+No explanations.
+No restating scores.
 
 Constraints:
 - Reasoning MUST be fully grounded ONLY in the compact record.
@@ -2188,36 +2197,29 @@ SKILL SCORING (PRECISE VALUES):
 - No match: 0-29
 
 SCORE BASED ON SKILL MATCH QUALITY:
-
 1. EXCELLENT MATCH (90-100):
    - Has ALL required skills from query
    - PLUS demonstrates advanced knowledge/certifications
    - PLUS has related complementary skills
    Example for Python Django query: "Python, Django, Flask, REST APIs, SQL" = 95-100
-
 2. VERY GOOD MATCH (80-89):
    - Has ALL required skills from query
    - Basic level without advanced expertise
    Example: "Python, Django" = 85-89
-
 3. GOOD MATCH (70-79):
    - Has PRIMARY required skill with depth
    - Missing some secondary required skills
    Example: "Python Level 2, OOPs, Modules" (no Django) = 72-78
-
 4. BASIC MATCH (60-69):
    - Has PRIMARY required skill at basic level
    - No advanced knowledge demonstrated
    Example: "Python" (only, no Django, no advanced topics) = 62-68
-
 5. PARTIAL MATCH (50-59):
    - Has some related skills but not direct match
    Example: "Java, Spring" for Python query = 52-58
-
 6. WEAK MATCH (40-49):
    - Very basic or marginally related skills
    Example: "C programming" for Python query = 42-48
-
 7. NO MATCH (0-39):
    - Completely unrelated skills
 
@@ -2329,7 +2331,7 @@ EMPLOYEES:
                 # Extract first number found in the tier text
                 tier_match = re.search(r'(\d+)', tier_text)
                 tier = int(tier_match.group(1)) if tier_match else 4
-                score = float(parts[2])
+                score = float(parts[2].replace("OverallScore", "").strip())
                 
                 # Parse criteria - handle both formats
                 criteria_text = parts[3]
@@ -2648,7 +2650,7 @@ You are an HR evaluator providing reasoning for pre-ranked employees.
 CRITICAL: DO NOT modify any scores or tiers. They are already calculated correctly.
 
 Your task for EACH employee:
-Generate exactly 2 sentences of HR reasoning BASED ON THE EXISTING SCORES.
+Reasoning must justify in natural words why the employee received THIS tier and score. No filler words. No repetition.
 
 IMPORTANT: DO NOT mention ANY deployment codes or customer names. Use only generic descriptions.
 
@@ -2686,6 +2688,15 @@ NEVER MENTION:
 - FR, BK, SH, RD, BU, BIL, BUD, IB, CRD, IN (any deployment codes)
 - Customer names like "Extreme Networks", "Buspatrol", "NXP"
 - Technical jargon or abbreviations
+
+PRIORITY REASONING:
+- Do NOT explain skills.
+- Focus only on availability first, then tech group, then experience.
+- Use one short priority-driven statement.
+Keep it extremely short.
+No comparison words.
+No explanations.
+No restating scores.
 
 OUTPUT FORMAT (one line per employee):
 emp_id | TIER X | <2 sentences reasoning>

@@ -12,6 +12,7 @@ from .query_parsing_service import QueryParsingService
 from .hybrid_search_engine import HybridSearchEngine
 from ..config.settings import get_settings
 from .cache_manager import cache_manager
+from ..celery.tasks import save_ranked_search_cache
 
 
 import asyncio
@@ -1534,6 +1535,21 @@ class AISearchService:
                     "parsed_query": {},
                     "processing_time": 0
                 }
+            logger.info(parsed_query)
+            if parsed_query.get("ranking") == False:
+                has_only_name = (
+                    parsed_query.get("employee_name")
+                    and all(
+                        not parsed_query.get(k)
+                        for k in [
+                            "skills", "context", "department", "deployment",
+                            "project", "project_search", "location"
+                        ]
+                    )
+                )
+                if not has_only_name:
+                    sql_query = await self.hybrid_engine._listing_query_generation(parsed_query, query)
+                    return await self.hybrid_engine._fetch_data_from_db(sql_query)
 
             # -------------------------------------------------------
             # 1) Search phase (same as before)
@@ -1603,9 +1619,16 @@ class AISearchService:
                     "total_results": len(enriched_results),
                     "parsed_query": parsed_query,
                     "processing_time": duration,
-                    "employee_search": True
+                    "employee_search": True,
+                    "ranking": False
                 }
-
+            cache_key = self._make_cache_key(parsed_query)
+            logger.info("Checking ranked details in cache...")
+            cached_result = await self._get_ranked_cached_result(cache_key)
+            if cached_result:
+                logger.info("Cache hit for parsed_query")
+                return cached_result
+            logger.info("No Cache found for this query...")
             # -------------------------------------------------------
             # 3) Compression / enrichment
             # -------------------------------------------------------
@@ -1726,8 +1749,9 @@ class AISearchService:
             duration = round(time.time() - start_time, 2)
             logger.info(f"✅ Full simplified search + pre-rank + LLM pipeline complete in {duration:.2f}s")
 
-            return {
+            final_response = {
                 "action": f"Employee search_with_rank_{mode}_simplified",
+                "ranking": True,
                 "response": f"Ranked {len(ranked_with_details)} employees using simplified parsing",
                 "data": ranked_with_details,
                 "total_results": len(ranked_with_details),
@@ -1735,6 +1759,12 @@ class AISearchService:
                 "processing_time": duration,
                 "employee_search": False
             }
+            if ranked_with_details:
+                logger.info("🚀 Sending ranked cache task to Celery")
+                save_ranked_search_cache.delay(cache_key, final_response, 300)
+                logger.info("Saving to cache...")
+
+            return final_response
 
         except Exception as e:
             logger.error(f"❌ process_search_and_rank_simplified error: {e}", exc_info=True)
@@ -1970,5 +2000,17 @@ class AISearchService:
         
         # Fallback to direct LLM call if Redis unavailable
         return await self.hybrid_engine._parse_query_with_llm_simplified(query)
+    
+    def _make_cache_key(self, parsed_query: dict):
+        import hashlib
+        normalize = json.dumps(parsed_query, sort_keys=True)
+        return "ranked_search:" + hashlib.md5(normalize.encode()).hexdigest()
+    
+    async def _get_ranked_cached_result(self, redis_key: str):
+        try:
+            data = self.hybrid_engine.embedding_cache.redis_client.get(redis_key)
+            return json.loads(data) if data else None
+        except Exception as e:
+            logger.error(f"Redis cache failed: {e}")
 
     

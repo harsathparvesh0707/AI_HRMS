@@ -236,7 +236,7 @@ class UploadService:
                     'skill_set': str(row.get('skill_set', '')).strip(),
                     'rm_id': str(row.get('rm_id', '')).strip(),
                     'rm_name': str(row.get('rm_name', '')).strip(),
-                    'joined_date': self._parse_date(row.get('joined_date')),
+                    'joined_date': self._parse_date(row.get('employee_joined_date')),
                     'committed_relieving_date': self._parse_date(row.get('committed_relieving_date')),
                     'extended_relieving_date': self._parse_date(row.get('extended_relieving_date'))
                 }
@@ -256,7 +256,7 @@ class UploadService:
                     'end_date': self._parse_date(row.get('end_date')),
                     'role': str(row.get('role', '')).strip(),
                     'deployment': str(row.get('deployment', '')).strip(),
-                    'project_joined_date': self._parse_date(row.get('project_joined_date')),
+                    'project_joined_date': self._parse_date(row.get('joined_date')),
                     'project_extended_end_date': self._parse_date(row.get('project_extended_end_date')),
                     'project_committed_end_date': self._parse_date(row.get('project_committed_end_date'))
                 })
@@ -761,6 +761,11 @@ class UploadService:
         try:
             offset = (page_number - 1) * page_size
             with get_db_session() as session:
+                total = session.execute(
+                    text(
+                        "SELECT COUNT(*) FROM employees;"
+                    )
+                ).scalar()
                 result = session.execute(
                     text(
                         """
@@ -790,6 +795,7 @@ class UploadService:
             employees = [dict(row) for row in result]
             return {
                 "status": 200,
+                "total_employees": total,
                 "employees": employees
             }
         except Exception as e:

@@ -141,30 +141,17 @@ class DashboardService:
             with get_db_session() as db:
                 emp = db.execute(
                     text(
-                        # """SELECT 
-                        #     e.*,
-                        #     COALESCE(
-                        #         json_agg(DISTINCT to_jsonb(ep))
-                        #         FILTER (WHERE ep.employee_id IS NOT NULL),
-                        #         '[]'::json
-                        #     ) AS projects
-
-                        # FROM employees e
-                        # JOIN employee_projects ep 
-                        #     ON e.employee_id = ep.employee_id
-
-                        # WHERE ep.deployment = ANY(:deployments)
-
-                        # GROUP BY e.employee_id
-                        # ORDER BY split_part(e.employee_id, '/', 2)::int
-                        # LIMIT :limit OFFSET :offset;"""
-                        """SELECT 
+                        """
+                        SELECT 
                             e.*,
+
                             COALESCE(
                                 json_agg(DISTINCT to_jsonb(ep))
                                 FILTER (WHERE ep.employee_id IS NOT NULL),
                                 '[]'::json
-                            ) AS projects
+                            ) AS projects,
+
+                            COUNT(*) OVER() AS total_count
 
                         FROM employees e
 
@@ -179,6 +166,7 @@ class DashboardService:
                         )
 
                         GROUP BY e.employee_id
+
                         ORDER BY split_part(e.employee_id, '/', 2)::int
                         LIMIT :limit OFFSET :offset;
                         """), 
@@ -190,9 +178,13 @@ class DashboardService:
                     ).mappings().all()
                 
             employees = [dict(row) for row in emp]
+            total = employees[0]["total_count"] if employees else 0
+            for emp in employees:
+                emp.pop("total_count", None)
 
             return {
                 "status": 200,
+                "total_count": total, 
                 "employees": employees,
             }
         except Exception as e:
