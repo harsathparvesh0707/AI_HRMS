@@ -218,3 +218,7 @@ class FreepoolCount(BaseModel):
 class EmployeeDirectoryResponse(BaseModel):
     status: str
     employees: List[Dict[str, Any]]
+
+class AIRequest(BaseModel):
+    prompt: str
+    chartType: str 

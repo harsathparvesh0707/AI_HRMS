@@ -10,13 +10,14 @@ from ..services.dashboard_service import DashboardService
 from ..models.schemas import (ChatRequest, ChatResponse, UploadResponse, QueryRequest, QueryResponse,
                             SkillsUpdateRequest, ProjectsUpdateRequest, ProfileUpdateRequest, EmployeeResponse, ProjectsListResponse,
                             ProjectDistributionResponse, DepartmentDistributionResponse, AvailableEmployeesResponse, LowOccupancyResponse,
-                            FreepoolCount, EmployeeDirectoryResponse, DeploymentFilter)
+                            FreepoolCount, EmployeeDirectoryResponse, DeploymentFilter, AIRequest)
 from .endpoints import health
 from ..celery.tasks import rebuild_embedding_cache
 from ..websocket.websocket import ws_manager
 from ..services.redis_broker import RedisMessageBroker
 from ..services.available_employees_service import AvailableEmployeesService
 from ..services.low_occupancy_service import LowOccupancyService
+from ..services.ai_analytics import AiAnalytics
 import asyncio
 
 api_router = APIRouter()
@@ -31,6 +32,7 @@ dashboard_service = DashboardService()
 broker = RedisMessageBroker()
 available_employees_service = AvailableEmployeesService()
 low_occupancy_service = LowOccupancyService()
+ai_analytics = AiAnalytics()
 
 
 @api_router.post("/search", response_model=ChatResponse, tags=["search"])
@@ -574,6 +576,16 @@ async def get_employee_directory():
         return result
     except Exception as e:
         logger.error("Error while fetching employee directory")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/ai-analytics")
+async def generate_ai_widgets(request: AIRequest):
+    try:
+        logger.info(f"🔍 /ai-analytics API called with prompt: '{request.prompt}\n {request.chartType}'")
+        result = await ai_analytics.ai_analytics_service(request)
+        return result
+    except Exception as e:
+        logger.error(str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
     
