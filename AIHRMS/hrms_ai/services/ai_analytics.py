@@ -1,5 +1,5 @@
 from ..config.settings import settings
-import google.generativeai as genai
+from google import genai
 from ..services.hybrid_search_engine import HybridSearchEngine
 from ..core.database import get_db_session
 from sqlalchemy import text
@@ -314,7 +314,7 @@ class AiAnalytics:
             # 3️⃣ Execute
             data = await self.execute_query(safe_sql)
 
-            logger.info("Returned data:",len(data))
+            logger.info(f"Returned data: {len(data)}")
 
             return {
                 "chartType": chart_type,

@@ -10,6 +10,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from sqlalchemy import text
 from ..core.database import get_db_session
+from ..config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class EmbeddingCacheService:
     - Provides 10x faster search through intelligent caching
     """
     
-    def __init__(self, redis_url: str = "redis://localhost:6379"):
+    def __init__(self, redis_url: str = f"redis://{settings.redis_host}:{settings.redis_port}"):
         self.available = DEPENDENCIES_AVAILABLE
         
         if not self.available:

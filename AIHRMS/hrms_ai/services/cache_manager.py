@@ -7,6 +7,7 @@ import time
 from typing import Dict, Any, Optional, Union
 from abc import ABC, abstractmethod
 import os
+from ..config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,7 @@ class MemoryCache(CacheInterface):
 class RedisCache(CacheInterface):
     """Redis-based cache"""
     
-    def __init__(self, host: str = "localhost", port: int = 6379, db: int = 0, 
+    def __init__(self, host: str = settings.redis_host, port: int = settings.redis_port, db: int = 0, 
                  password: str = None, connection_timeout: int = 5, **kwargs):
         self.host = host
         self.port = port

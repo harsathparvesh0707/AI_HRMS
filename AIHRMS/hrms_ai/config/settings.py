@@ -1,7 +1,7 @@
 """
 Configuration settings using environment variables
 """
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from typing import List
 
@@ -50,9 +50,15 @@ class Settings(BaseSettings):
     # --------------------
     allowed_origins: List[str] = ["*"]
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    # class Config:
+    #     env_file = ".env"
+    #     case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore"
+    )
+
 
 
 @lru_cache()

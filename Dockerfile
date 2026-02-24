@@ -14,9 +14,6 @@ WORKDIR /app
 # -------------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
     build-essential \
-    curl \
-    gcc \
-    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 # -------------------------------------------------------------------
@@ -30,14 +27,12 @@ RUN pip install --upgrade pip setuptools wheel
 # -------------------------------------------------------------------
 COPY requirements.txt .
 
-RUN pip install \
-    --extra-index-url https://download.pytorch.org/whl/cpu \
-    -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # -------------------------------------------------------------------
 # Copy application code
 # -------------------------------------------------------------------
 COPY . .
 
-ENV PYTHONPATH=/app
-EXPOSE 8000
+ENV PYTHONPATH=/app/AIHRMS
+CMD ["python", "-m" , "AIHRMS.hrms_ai.run"]

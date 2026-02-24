@@ -1,11 +1,12 @@
 from celery import Celery
 from celery.schedules import crontab
 from datetime import timedelta
+from ..config.settings import settings
 
 celery_app = Celery(
-    "hrms_ai",
-    broker="redis://localhost:6379/0",
-    backend="redis://localhost:6379/1",
+    "AIHRMS.hrms_ai",
+    broker=f"redis://{settings.redis_host}:{settings.redis_port}/0",
+    backend=f"redis://{settings.redis_host}:{settings.redis_port}/1",
 )
 
 celery_app.conf.update(
@@ -16,18 +17,18 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
-# celery_app.conf.beat_schedule = {
-#     "check-project-deadlines-daily": {
-#         "task": "check_project_deadlines",
-#         "schedule": crontab(hour=10, minute=0)
-#     }
-# }
-
 celery_app.conf.beat_schedule = {
     "check-project-deadlines-daily": {
         "task": "check_project_deadlines",
-        "schedule": timedelta(minutes=1)
+        "schedule": crontab(hour=10, minute=0)
     }
 }
 
-celery_app.autodiscover_tasks(["hrms_ai.celery"])
+# celery_app.conf.beat_schedule = {
+#     "check-project-deadlines-daily": {
+#         "task": "AIHRMS.hrms_ai.celery.tasks.check_project_deadlines",
+#         "schedule": timedelta(minutes=1)
+#     }
+# }
+
+celery_app.autodiscover_tasks(["AIHRMS.hrms_ai.celery"])
