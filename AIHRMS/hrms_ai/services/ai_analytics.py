@@ -1,5 +1,5 @@
 from ..config.settings import settings
-from google import genai
+import google.generativeai as genai
 from ..services.hybrid_search_engine import HybridSearchEngine
 from ..core.database import get_db_session
 from sqlalchemy import text
@@ -28,7 +28,6 @@ class AiAnalytics:
         - designation (varchar)
         - skill_set (varchar)
         - committed_relieving_date (date)
-        - joined_date (date)
 
         Table: employee_projects
         - id (integer, primary key)
@@ -36,6 +35,7 @@ class AiAnalytics:
         - project_name (varchar)
         - project_department (varchar)
         - customer (varchar)
+        - project_joined_date (date)
         - project_industry (varchar)
         - project_status (varchar)
         - occupancy (integer)
@@ -60,15 +60,19 @@ class AiAnalytics:
         4. If user refers to team/department (e.g., Backend, Frontend, Cloud), search in tech_group.
         5. If user refers to job title (Engineer, Manager, Director, Lead), search in designation.
         6. skill_set column is a comma-separated list of technical skills.
-        7. committed_relieving_date is the employee relieving date.
+        7. employees.committed_relieving_date is the employee relieving date from project.
+        8. employees.project_joined_date is the date employee joined the project.
+        9. employee_projects.project_committed_end_date is the project end date.
         8. Do NOT filter designation using "developer".
         9. rm_id references employees.employee_id.
-        10. total_exp and vvdn_exp format: "XY ZM" (e.g., 2Y 10M).
-
-        For visualization or comparison:
-        - Convert experience to total months:
-        (years * 12 + months)
-        - Use numeric conversion for bar charts.
+        10. Any token matching pattern ^[A-Za-z0-9]{4}_[A-Za-z0-9]{4}$ could be a project_name but still use LIKE '%' for filtering.
+        11. total_exp and vvdn_exp format: "XY ZM" (e.g., 2Y 10M).
+            For visualization or comparison:
+            - Convert experience to total months:
+            (years * 12 + months)
+            - Use numeric conversion for bar charts.
+        12. When user refers to "internal budgeted projects, Free, Trianee, BU Common, RandD Internal Budgeted, Customer Facing, R and D Shadow, Billable, etc..", filter using deployment ILIKE '%Internal Budgeted%'
+            - Do NOT infer internal/billable using project_name or customer unless explicitly requested.
         """
 
     def __init__(self):
@@ -147,44 +151,96 @@ class AiAnalytics:
             - Generate ONLY SELECT queries.
             - Never generate INSERT, UPDATE, DELETE, DROP, ALTER.
             - Use strictly PostgreSQL-compatible syntax.
+            - Use PostgreSQL-specific syntax and functions only.
+            - NEVER use REGEXP_SUBSTR.
+            - For regex extraction use:
+                substring(column from 'regex').
             - Use COUNT(DISTINCT employee_id) for employee counts.
             - Use proper explicit JOIN when needed.
             - When using GROUP BY, include all non-aggregated selected columns.
-            - For string filtering, always use ILIKE with '%' unless exact match is requested.
+            - For string filtering strcitly use pattern: column ILIKE '%'.
+            - Never use exact equality (=) unless user explicitly says "exact match".
             - If user requests "top N", use ORDER BY <metric> DESC with LIMIT N.
-            - Always include LIMIT 100 unless smaller limit specified.
             - Do NOT use backticks.
             - SQL must execute in PostgreSQL 14.
 
-            Chart Type Decision Framework:
+            Chart Type Decision Framework
+
+            IMPORTANT:
+            This framework is used ONLY when User Preferred Chart is "None".
+            If User Preferred Chart is provided, it MUST be used
+            unless technically impossible.
+
+            ------------------------------------------------------
 
             card:
-            - Exactly one row AND one column.
-            - No grouping.
+            - Exactly one row AND one numeric column.
+            - No GROUP BY.
             - Used for KPI/single metric.
 
             line:
-            - One time dimension + numeric aggregate.
-
-            bar:
-            - One categorical column + numeric aggregate.
+            - One time/date dimension
+            - One numeric aggregate
+            - Used strictly for time series.
 
             pie:
-            - Exactly one categorical + exactly one numeric aggregate.
+            - Exactly one categorical column
+            - Exactly one numeric aggregate
+            - Used for proportion/share
             - Not allowed for time series.
 
-            table:
-            - Multiple descriptive columns.
-            - Multiple grouping columns.
-            - No aggregation.
-            - Visualization misleading.
+            scatter:
+            - Exactly two numeric columns
+            - No categorical dimension
+            - No aggregation unless explicitly requested.
+
+            radar:
+            - One categorical column (required)
+            - One numeric aggregate (required)
+            - Optional second categorical column becomes radar series
+            - Recommended when comparing <= 6 entities
+
+            If chartType = "bar", you MUST follow this structure:
+
+            There are ONLY three valid bar formats:
+
+                Normal Bar:
+                - One categorical column
+                - One numeric aggregate
+                - xAxis = categorical column (STRING)
+                - yAxis = numeric column (STRING)
+                - groupBy = null
+
+                Multi-Metric Bar:
+                - One categorical column
+                - Two or more numeric metrics
+                - xAxis = categorical column (STRING)
+                - yAxis = ARRAY of metric column names
+                - groupBy = null
+
+                Grouped Bar (Segmented):
+                - Two categorical columns
+                - One numeric aggregate
+                - xAxis = first categorical column (STRING)
+                - groupBy = second categorical column (STRING)
+                - yAxis = numeric column (STRING)
+
+            Chart Type Enforcement Rule:
+
+                If user explicitly requests a chart type,
+                that chart type MUST be used,
+                unless the dataset structure makes it impossible.
 
             Fallback Priority:
             1. Single aggregate → card
             2. Time series → line
             3. Ranking/comparison → bar
-            4. Proportion/share → pie
-            5. Otherwise → table
+            4. Two numeric metrics (no aggregation) → scatter
+            5. One categorical + one metric (filtered to <= 5 entities) → radar
+            6. One category + multiple metrics → multi_bar
+            7. Two categories + one metric → grouped_bar
+            8. Proportion/share → pie
+            9. Otherwise → table
 
             Output Rules:
             - Return ONLY valid raw JSON.
@@ -197,7 +253,7 @@ class AiAnalytics:
 
             {{
             "sql": "...",
-            "chartType": "bar|line|pie|table|card",
+            "chartType": "bar|grouped_bar|multi_bar|scatter|line|pie|table|card",
             "xAxis": "...",
             "yAxis": "...",
             "title": "..."
@@ -257,6 +313,8 @@ class AiAnalytics:
 
             # 3️⃣ Execute
             data = await self.execute_query(safe_sql)
+
+            logger.info("Returned data:",len(data))
 
             return {
                 "chartType": chart_type,
