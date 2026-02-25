@@ -2811,18 +2811,12 @@ class HybridSearchEngine:
                 skill_subconds = []
                 for i, skill in enumerate(semantic_skills):
                     safe_skill = skill.lower().strip()
-                    # pattern = fr"(^|[,\s;|()_-]){re.escape(safe_skill)}([,\s;|()_-]|$)"
-                    # skill_subconds.append(f"e.skill_set ~* :skill_{i}")
-                    # params[f"skill_{i}"] = pattern
-                    # skill_subconds.append(f"LOWER(e.skill_set) LIKE :skill_{i}")
-                    # params[f"skill_{i}"] = f"%{safe_skill}%"
                     pattern = fr"(^|[^a-z0-9]){re.escape(safe_skill)}([^a-z0-9]|$)(?!\s*script)"
                     skill_subconds.append(f"e.skill_set ~* :skill_{i}")
                     params[f"skill_{i}"] = pattern
 
-
                 if skill_subconds:
-                    conditions.append("(" + " OR ".join(skill_subconds) + ")")
+                    skill_condition_block = "(" + " OR ".join(skill_subconds) + ")"
 
             # if context:
             #     context_subconds = []
@@ -2845,8 +2839,16 @@ class HybridSearchEngine:
                     )
                     params[f"ctx_{i}"] = f"%{normalized_ctx}%"
                 
-                conditions.append("(" + " OR ".join(context_subconds) + ")")
-                logger.info(f"🧠 Normalized context filter applied: {context}")
+                context_condition_block = "(" + " OR ".join(context_subconds) + ")"
+
+            if skill_condition_block and context_condition_block:
+                conditions.append(f"({skill_condition_block} OR {context_condition_block})")
+
+            elif skill_condition_block:
+                conditions.append(skill_condition_block)
+
+            elif context_condition_block:
+                conditions.append(context_condition_block)
 
             if location:
                 conditions.append("e.emp_location ILIKE :loc")
@@ -3368,11 +3370,30 @@ class HybridSearchEngine:
             FILTER CONDITIONS (JSON):
             {json.dumps(parsed_query, indent=2)}
 
-            Rules for WHERE clause:
             - skills → filter using e.skill_set
-                If skill_precision="strict" → e.skill_set = 'skill'
-                Else → e.skill_set ILIKE '%skill%'
-            - context → filter e.tech_group ILIKE
+            - context → filter using e.tech_group
+                STRICT LOGIC:
+                    1. Expand ALL skills into:
+                    (e.skill_set ILIKE '%value1%' OR e.skill_set ILIKE '%value2%')
+                    2. Expand ALL context into:
+                    (e.tech_group ILIKE '%value1%' OR e.tech_group ILIKE '%value2%')
+                    3. If BOTH skills AND context exist:
+                    Merge BOTH expanded groups into ONE single OR block (flattened).
+                Example:
+                skills = ["android"]
+                context = ["android", "hybrid"]
+
+                Generate:
+
+                AND (
+                    e.skill_set ILIKE '%android%'
+                    OR e.tech_group ILIKE '%android%'
+                    OR e.tech_group ILIKE '%hybrid%'
+                )
+
+                Do NOT nest parentheses.
+                Do NOT drop any value.
+                Do NOT use AND between skills and context.
             - experience_min →
                 CAST(e.total_exp AS INTEGER) >= value
             - experience_max →
@@ -3384,12 +3405,26 @@ class HybridSearchEngine:
             - deployment → ep.deployment ILIKE
             - project → ep.project_name ILIKE
             - project_search=true → ensure project filter exists
-            - If any filter field contains multiple values (array),
+            - If any field other than skills/context contains multiple values (array),
             use OR between those values inside parentheses.
+            Example:
+            location = ["kochi", "pollachi"]
+            Generate:
 
+            AND (
+                e.emp_location ILIKE '%kochi%'
+                OR e.emp_location ILIKE '%pollachi%'
+            )
+            Apply this rule to:
+            - location
+            - department
+            - designation
+            - employee_name
+            - deployment
+            - project
+            Use AND only between different fields.
             Example:
             If context = ["backend", "full stack"]
-
             Generate:
             AND (
                 e.tech_group ILIKE '%backend%'
@@ -3402,10 +3437,10 @@ class HybridSearchEngine:
             SAMPLE INPUT JSON:
 
             {{
-            "skills": ["react"],
-            "context": ["frontend"],
+            "skills": ["android"],
+            "context": ["android", "hybrid"],
             "experience_min": 3,
-            "location": "Bangalore",
+            "location": ["Bangalore", "Pollachi"],
             "ranking": false
             }}
 
@@ -3435,10 +3470,16 @@ class HybridSearchEngine:
             LEFT JOIN employee_projects ep 
                 ON e.employee_id = ep.employee_id
             WHERE 1=1
-            AND e.skill_set ILIKE '%react%'
-            AND e.tech_group ILIKE '%frontend%'
+            AND (
+                e.skill_set ILIKE '%android%'
+                OR
+                e.tech_group ILIKE '%android%'
+                OR e.tech_group ILIKE '%hybrid%'
+            )
             AND CAST(e.total_exp AS INTEGER) >= 3
-            AND e.emp_location ILIKE '%Bangalore%'
+            AND (e.emp_location ILIKE '%Bangalore%'
+                OR e.emp_location ILIKE '%Pollachi%'
+            )
             GROUP BY e.employee_id
             ORDER BY split_part(e.employee_id, '/', 2)::int;
 

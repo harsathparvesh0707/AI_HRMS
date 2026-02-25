@@ -41,7 +41,7 @@ app.add_middleware(
 )
 
 # Include API routes
-app.include_router(api_router)
+app.include_router(api_router, prefix="/api", tags=["apis"])
 
 @app.get("/")
 async def root():
