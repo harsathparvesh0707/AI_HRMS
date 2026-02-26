@@ -1310,11 +1310,14 @@ class AISearchService:
                 logger.info(f"🔄 Redis simplified parse cache MISS - calling LLM: {query[:30]}...")
                 parsed = await self.hybrid_engine._parse_query_with_llm_simplified_fix(query)
                 
-                # Cache in Redis with 5 minute TTL
-                self.hybrid_engine.embedding_cache.redis_client.setex(
-                    cache_key, 300, json.dumps(parsed)
-                )
-                
+                if parsed and isinstance(parsed, dict) and len(parsed.keys()) > 0:
+                    self.hybrid_engine.embedding_cache.redis_client.setex(
+                        cache_key, 300, json.dumps(parsed)
+                    )
+                    logger.info("💾 Cached valid parsed query in Redis")
+                else:
+                    logger.warning("⚠️ Invalid or empty parsed result — not caching")
+                                
                 return parsed
                 
             except Exception as e:
@@ -1566,7 +1569,9 @@ class AISearchService:
                 parsed_query.get('department'),
                 parsed_query.get('employee_name'),
                 parsed_query.get('experience_min'),
-                parsed_query.get('experience_max')
+                parsed_query.get('experience_max'),
+                parsed_query.get('project_duration_min_days'),
+                parsed_query.get('project_duration_max_days')
             ])
 
             is_generic = not has_structured_filters and len(query.split()) <= 5

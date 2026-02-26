@@ -289,7 +289,8 @@ Now rank ALL {top_k} employees:
                     'deployment': project.get('deployment'),
                     'occupancy': project.get('occupancy', 0),
                     'project_industry': project.get('project_industry'),
-                    'project_status': project.get('project_status')
+                    'project_status': project.get('project_status'),
+                    'project_joined_date': project.get('project_joined_date')
                 }
                 current_projects.append(project_info)
             

@@ -2422,6 +2422,8 @@ class HybridSearchEngine:
             - designation: like engineer, sr engineer etc.
             - project: project name/code if mentioned
             - project_search: true if looking for people who worked on a project
+            - project_duration_min_days: integer (minimum number of days in current project/deployment)
+            - project_duration_max_days: integer (maximum number of days in current project/deployment)
             - employee_name: name if specific person requested
             - skill_precision: "strict" if user specifies exact skill or says "exact match"
             - ranking: true or false
@@ -2442,18 +2444,55 @@ class HybridSearchEngine:
             6. If query is a single word and not a known technology, treat it as employee_name.
             7. Determine if ranking is required:
 
-            Set "ranking": true when:
+            9. Set "ranking": true when:
             - The query implies quality comparison or prioritization
             - Words like "skilled in", "strong in", "expert in", "best", 
             "good at", "proficient", "experienced in"
             - When it's for project requirement or hiring decision
             - When matching strength matters
 
-            Set "ranking": false when:
+            10. Set "ranking": false when:
             - Query is simple listing like:
             "list all", "show all", "get employees"
             - Basic filtering without comparison intent
             - Simple tech + department queries
+            11. Duration / Tenure Parsing Rules:
+
+            If the query contains phrases like:
+            - "for more than 60 days"
+            - "for over 2 months"
+            - "for more than 10 years"
+            - "for at least 30 days"
+            - "longer than 6 months"
+
+            Convert duration into DAYS and store in:
+            project_duration_min_days
+
+            Conversions:
+            - 1 month = 30 days
+            - 1 year = 365 days
+            If user says:
+            - "more than X days" → map to project_duration_min_days
+            - "less than X days" → map to project_duration_max_days
+            - NEVER map "less than" to min_days
+            - NEVER map "more than" to max_days
+            Examples:
+
+            "resources in freepool for more than 60 days"
+            → deployment="free"
+            → project_duration_min_days=60
+
+            "resources in freepool for less than 2 months"
+            → deployment="free"
+            → project_duration_max_days=60
+
+            "employees in VVDN_CDPX for more than 10 years"
+            → project="VVDN_CDPX"
+            → project_search=true
+            → project_duration_min_days=3650
+
+            Do NOT confuse this with total experience.
+            This duration refers to time in current project or deployment (based on ep.project_joined_date).
 
             Return ONLY a valid JSON object with the extracted keys.
             """
@@ -2592,6 +2631,8 @@ class HybridSearchEngine:
             - designation: like engineer, sr engineer etc.
             - project: project name/code if mentioned
             - project_search: true if looking for people who worked on a project
+            - project_duration_min_days: integer (minimum number of days in current project/deployment)
+            - project_duration_max_days: integer (maximum number of days in current project/deployment)
             - employee_name: name if specific person requested
             - skill_precision: "strict" if user specifies exact skill or says "exact match"
             - ranking: true or false
@@ -2659,6 +2700,45 @@ class HybridSearchEngine:
                     project_search
             when the query clearly refers to an actual, identifiable project name or code 
             (e.g., 'EXNI_CLRQ', 'Netgear IMDV', 'Extreme project', etc.).
+
+            11. Duration / Tenure Parsing Rules:
+
+            If the query contains phrases like:
+            - "for more than 60 days"
+            - "for over 2 months"
+            - "for more than 10 years"
+            - "for at least 30 days"
+            - "longer than 6 months"
+
+            Convert duration into DAYS and store in:
+            project_duration_min_days
+
+            Conversions:
+            - 1 month = 30 days
+            - 1 year = 365 days
+            If user says:
+            - "more than X days" → map to project_duration_min_days
+            - "less than X days" → map to project_duration_max_days
+            - NEVER map "less than" to min_days
+            - NEVER map "more than" to max_days
+            Examples:
+
+            "resources in freepool for more than 60 days"
+            → deployment="free"
+            → project_duration_min_days=60
+
+            "resources in freepool for less than 2 months"
+            → deployment="free"
+            → project_duration_max_days=60
+
+            "employees in VVDN_CDPX for more than 10 years"
+            → project="VVDN_CDPX"
+            → project_search=true
+            → project_duration_min_days=3650
+
+            Do NOT confuse this with total experience.
+            Do NOT confuse this with experience_min and experience_max 
+            This duration refers to time in current project or deployment (based on ep.project_joined_date).
 
 
             Return ONLY a valid JSON object with the extracted keys.
@@ -2797,6 +2877,8 @@ class HybridSearchEngine:
             project = parsed_query.get("project")
             experience_min = parsed_query.get("experience_min")
             employee_name = parsed_query.get("employee_name")
+            project_duration_min_days = parsed_query.get("project_duration_min_days")
+            project_duration_max_days = parsed_query.get("project_duration_max_days")
 
             semantic_skills = []
             if skills:
@@ -2806,6 +2888,8 @@ class HybridSearchEngine:
 
             conditions = []
             params = {}
+            skill_condition_block = None
+            context_condition_block = None
 
             if semantic_skills:
                 skill_subconds = []
@@ -2862,7 +2946,17 @@ class HybridSearchEngine:
             if project:
                 conditions.append("(ep.project_name ILIKE :proj OR ep.customer ILIKE :proj OR ep.project_department ILIKE :proj)")
                 params["proj"] = f"%{project}%"
-
+            if (project or deployment):
+                if project_duration_min_days:
+                    conditions.append(
+                        "ep.project_joined_date <= CURRENT_DATE - INTERVAL '1 day' * :min_proj_days"
+                    )
+                    params["min_proj_days"] = int(project_duration_min_days)
+                if project_duration_max_days:
+                    conditions.append(
+                        "ep.project_joined_date >= CURRENT_DATE - INTERVAL '1 day' * :max_proj_days"
+                    )
+                    params["max_proj_days"] = int(project_duration_max_days)
             if employee_name:
                 emp_name = employee_name.strip()
                 if emp_name:
@@ -3331,8 +3425,8 @@ class HybridSearchEngine:
                 - project_industry
                 - project_status
                 - occupancy
-                - start_date
-                - end_date
+                - project_extended_end_date
+                - project_joined_date
             """
             prompt = f"""
             {schema_prompt}
@@ -3351,8 +3445,8 @@ class HybridSearchEngine:
                             'project_industry', ep.project_industry,
                             'project_status', ep.project_status,
                             'occupancy', ep.occupancy,
-                            'start_date', ep.start_date,
-                            'end_date', ep.end_date,
+                            'project_joined_date', ep.project_joined_date,
+                            'project_extended_end_date', ep.project_extended_end_date,
                             'role', ep.role,
                             'deployment', ep.deployment
                         )
@@ -3431,8 +3525,39 @@ class HybridSearchEngine:
                 OR e.tech_group ILIKE '%full stack%'
             )
 
+            - project_duration_min_days →
+                Apply ONLY if project OR deployment filter exists.
+                Filter using:
+
+                ep.project_joined_date <= CURRENT_DATE - INTERVAL '1 day' * value
+
+            - project_duration_max_days →
+                Apply ONLY if project OR deployment filter exists.
+                Filter using:
+
+                ep.project_joined_date >= CURRENT_DATE - INTERVAL '1 day' * value
+
+            - Duration must ALWAYS apply to employee_projects table (ep).
+            - NEVER apply duration on employees table.
+            - NEVER confuse total_exp with project duration.
+            - total_exp is employee experience.
+            - project_duration_* is project time duration.
+
             - Never use AND between values of the same field.
             - Use AND only between different fields.
+
+            PROJECT DURATION LOGIC:
+            - project_duration_min_days and project_duration_max_days are completely different from experience_min and experience_max.
+            - experience_* filters employees table using total_exp.
+            - project_duration_* filters employee_projects table using start_date.
+
+            - Apply project_duration filters ONLY if:
+                - project exists OR deployment exists
+            - project_duration_min_days →
+                ep.project_joined_date <= CURRENT_DATE - INTERVAL '1 day' * value
+            - project_duration_max_days →
+                ep.project_joined_date >= CURRENT_DATE - INTERVAL '1 day' * value
+            - NEVER apply project_duration if project and deployment are both missing.
 
             SAMPLE INPUT JSON:
 
@@ -3495,6 +3620,10 @@ class HybridSearchEngine:
                     }
                 )
                 sql_query = response.text.strip()
+                if sql_query.startswith("```"):
+                    sql_query = sql_query.split("```")[1]  # remove first fence
+                    sql_query = sql_query.replace("sql", "", 1).strip()
+                    sql_query = sql_query.replace("```", "").strip()
                 logger.info(sql_query)
                 return sql_query
             except Exception as e:
