@@ -2630,6 +2630,12 @@ class HybridSearchEngine:
             AVAILABLE DEPARTMENTS (official names):
             {departments}
 
+            IMPORTANT
+            Words like “employees”, "employee", “people”, "peoples", “candidates”, “engineers”, "engineer", “developers”, "developer", 
+            “team”, “resources”, “backend engineers”, “frontend developers”, etc.
+            are NOT names and NOT automatic designation filters.
+            They describe a TYPE OF WORK, not a strict filter.
+
             Your task: interpret the query and map it to the most relevant general category above.
 
             Extract and infer the following keys if mentioned or implied:
@@ -2653,12 +2659,15 @@ class HybridSearchEngine:
                 Input Query: "UI UX designer"
                 Output:
                 "skills": ["ui/ux", "ui ux"]
+                "context": ["ui/ux", "ui ux"]
                 Input Query: "React developer"
                 Output:
                 "skills": ["react", "reactjs"]
+                "context": ["react", "reactjs"]
                 Input Query: "Node backend"
                 Output:
                 "skills": ["node", "nodejs"]
+                "context": ["node", "nodejs"]
                 Return normalized lowercase skills only.
             - context: [list of domain/technologies] ONLY include if the query explicitly mentioned any specific skill or domain.
             - experience_min: integer years
