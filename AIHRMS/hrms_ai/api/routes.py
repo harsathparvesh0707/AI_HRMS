@@ -10,7 +10,7 @@ from ..services.dashboard_service import DashboardService
 from ..models.schemas import (ChatRequest, ChatResponse, UploadResponse, QueryRequest, QueryResponse,
                             SkillsUpdateRequest, ProjectsUpdateRequest, ProfileUpdateRequest, EmployeeResponse, ProjectsListResponse,
                             ProjectDistributionResponse, DepartmentDistributionResponse, AvailableEmployeesResponse, LowOccupancyResponse,
-                            FreepoolCount, EmployeeDirectoryResponse, DeploymentFilter, AIRequest)
+                            FreepoolCount, EmployeeDirectoryResponse, DeploymentFilter, AIRequest, User, UserResponse)
 from .endpoints import health
 from ..celery.tasks import rebuild_embedding_cache
 from ..websocket.websocket import ws_manager
@@ -18,6 +18,11 @@ from ..services.redis_broker import RedisMessageBroker
 from ..services.available_employees_service import AvailableEmployeesService
 from ..services.low_occupancy_service import LowOccupancyService
 from ..services.ai_analytics import AiAnalytics
+from ..auth.security import Authentication
+from ..auth.auth import Token
+from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends
+from jose import JWTError, ExpiredSignatureError
 import asyncio
 
 api_router = APIRouter()
@@ -33,10 +38,34 @@ broker = RedisMessageBroker()
 available_employees_service = AvailableEmployeesService()
 low_occupancy_service = LowOccupancyService()
 ai_analytics = AiAnalytics()
+user_auth = Authentication()
+user_token = Token()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
+
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        user_details = user_token._decode_access_token(token)
+        user_id = user_details.get("user_id")
+        username = user_details.get("username")
+        if not user_id or not username:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return {
+            "user_id": user_id,
+            "username": username
+        }
+    except ExpiredSignatureError as e:
+        raise HTTPException(status_code=401, detail="Token has Expired")
+    
+    except JWTError as e:
+        raise HTTPException(status_code=401, detail="Invalid Token")
+    
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e))
 
 
 @api_router.post("/search", response_model=ChatResponse, tags=["search"])
-async def search_employees(request: ChatRequest) -> ChatResponse:
+async def search_employees(request: ChatRequest, current_user: dict = Depends(get_current_user)) -> ChatResponse:
     """Employee search"""
     result = await search_service.process_query(
         query=request.query,
@@ -46,7 +75,7 @@ async def search_employees(request: ChatRequest) -> ChatResponse:
     return result
 
 @api_router.post("/search-result", tags=["search"])
-async def search_results_only(request: ChatRequest) -> Dict[str, Any]:
+async def search_results_only(request: ChatRequest, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Search without ranking - for optimization"""
     logger.info(f"🔍 /search-result API called with query: '{request.query}'")
     print(f"🔍 /search-result API called with query: '{request.query}'")
@@ -62,7 +91,7 @@ async def search_results_only(request: ChatRequest) -> Dict[str, Any]:
 
 
 @api_router.post("/search-rank", tags=["search"])
-async def search_results_only(request: ChatRequest) -> Dict[str, Any]:
+async def search_results_only(request: ChatRequest, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Search without ranking - for optimization"""
     logger.info(f"🔍 /search-result API called with query: '{request.query}'")
     print(f"🔍 /search-result API called with query: '{request.query}'")
@@ -77,7 +106,7 @@ async def search_results_only(request: ChatRequest) -> Dict[str, Any]:
     return result
 
 @api_router.post("/search-rank-simplified", tags=["search"])
-async def search_results_simplified(request: ChatRequest) -> Dict[str, Any]:
+async def search_results_simplified(request: ChatRequest, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Search with simplified parsing - uses general tech categories instead of specific ones"""
     logger.info(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
     print(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
@@ -93,7 +122,7 @@ async def search_results_simplified(request: ChatRequest) -> Dict[str, Any]:
 
 
 @api_router.post("/search-rank-simplified-new", tags=["search"])
-async def search_results_simplified_new(request: ChatRequest) -> Dict[str, Any]:
+async def search_results_simplified_new(request: ChatRequest, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Search with simplified parsing - uses general tech categories instead of specific ones"""
     logger.info(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
     print(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
@@ -108,7 +137,7 @@ async def search_results_simplified_new(request: ChatRequest) -> Dict[str, Any]:
     return result
 
 @api_router.post("/search-rank-simplified-semantic", tags=["search"])
-async def search_results_simplified_new(request: ChatRequest) -> Dict[str, Any]:
+async def search_results_simplified_new(request: ChatRequest, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Search with simplified parsing - uses general tech categories instead of specific ones"""
     logger.info(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
     print(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
@@ -124,7 +153,7 @@ async def search_results_simplified_new(request: ChatRequest) -> Dict[str, Any]:
 
 
 @api_router.post("/query", response_model=QueryResponse, tags=["search"])
-async def advanced_query(request: QueryRequest) -> QueryResponse:
+async def advanced_query(request: QueryRequest, current_user: dict = Depends(get_current_user)) -> QueryResponse:
     """🔍 Advanced employee query with performance monitoring"""
     try:
         result = await search_service.process_advanced_query(request)     
@@ -135,7 +164,7 @@ async def advanced_query(request: QueryRequest) -> QueryResponse:
 @api_router.post("/upload/hrms-data", response_model=UploadResponse, tags=["upload"])
 async def upload_hrms_data(
     file: UploadFile = File(...),
-    description: str = Form("")
+    description: str = Form(""), current_user: dict = Depends(get_current_user)
 ) -> UploadResponse:
     """File Upload Endpoint"""
     # Process file upload
@@ -232,7 +261,7 @@ async def precompute_embeddings(background_tasks: BackgroundTasks) -> Dict[str, 
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/cache-stats", tags=["performance"])
-async def get_cache_stats() -> Dict[str, Any]:
+async def get_cache_stats(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Get cache stats"""
     try:
         stats = {}
@@ -254,7 +283,7 @@ async def get_cache_stats() -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 @api_router.delete("/clear-cache", tags=["performance"])
-async def clear_all_caches() -> Dict[str, Any]:
+async def clear_all_caches(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Clear ALL caches - embeddings, queries, and skill mappings"""
     embedding_service = EmbeddingCacheService()
     if embedding_service.available:
@@ -277,7 +306,7 @@ async def clear_all_caches() -> Dict[str, Any]:
     return {"status": "unavailable", "message": "Cache service not available"}
 
 @api_router.post("/rebuild-compression-cache", tags=["performance"])
-async def rebuild_compression_cache(background_tasks: BackgroundTasks) -> Dict[str, Any]:
+async def rebuild_compression_cache(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Rebuild compression cache"""
     try:
         from ..services.compression_service import compression_service
@@ -293,7 +322,7 @@ async def rebuild_compression_cache(background_tasks: BackgroundTasks) -> Dict[s
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/compression-stats", tags=["performance"])
-async def get_compression_stats() -> Dict[str, Any]:
+async def get_compression_stats(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Get compression cache stats"""
     try:
         from ..services.compression_service import compression_service
@@ -323,7 +352,7 @@ async def get_compression_stats() -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 @api_router.get("/cache-info", tags=["performance"])
-async def get_cache_info() -> Dict[str, Any]:
+async def get_cache_info(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Get detailed cache system information"""
     try:
         from ..services.cache_manager import cache_manager
@@ -333,7 +362,7 @@ async def get_cache_info() -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 @api_router.post("/switch-cache", tags=["admin"])
-async def switch_cache_type(cache_type: str) -> Dict[str, Any]:
+async def switch_cache_type(cache_type: str, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Switch cache type (redis/memory) - for testing purposes"""
     try:
         from ..services.cache_manager import cache_manager
@@ -370,7 +399,7 @@ async def get_system_health() -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 @api_router.get("/performance-metrics", tags=["monitoring"])
-async def get_performance_metrics() -> Dict[str, Any]:
+async def get_performance_metrics(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Get detailed performance metrics"""
     try:
         stats = await search_service.get_system_statistics()
@@ -379,7 +408,7 @@ async def get_performance_metrics() -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 @api_router.get("/query-analytics", tags=["monitoring"])
-async def get_query_analytics() -> Dict[str, Any]:
+async def get_query_analytics(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Get query analytics and insights"""
     try:
         from ..services.monitoring_service import MonitoringService
@@ -391,7 +420,7 @@ async def get_query_analytics() -> Dict[str, Any]:
 
 # Employee Management APIs
 @api_router.get("/employees", tags=["employee-management"])
-async def get_all_employees(page: int = Query(1, ge=1), page_size: int = Query(10, ge=1)) -> Dict[str, Any]:
+async def get_all_employees(page: int = Query(1, ge=1), page_size: int = Query(10, ge=1), current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Get All Employees"""
     try:
         result = await upload_service.get_all_employee_details(page, page_size)
@@ -402,7 +431,7 @@ async def get_all_employees(page: int = Query(1, ge=1), page_size: int = Query(1
 
 
 @api_router.get("/employees/{employee_id}", tags=["employee-management"])
-async def get_employee(employee_id: str) -> Dict[str, Any]:
+async def get_employee(employee_id: str, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Get employee details with all projects"""
     try:
         # Add VVDN prefix if not present
@@ -413,7 +442,7 @@ async def get_employee(employee_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(e))
 
 @api_router.put("/employees/{employee_id}/skills", response_model=EmployeeResponse, tags=["employee-management"])
-async def update_employee_skills(employee_id: str, skills_data: SkillsUpdateRequest) -> EmployeeResponse:
+async def update_employee_skills(employee_id: str, skills_data: SkillsUpdateRequest, current_user: dict = Depends(get_current_user)) -> EmployeeResponse:
     """Update employee skills"""
     try:
         # Add VVDN prefix if not present
@@ -429,7 +458,7 @@ async def update_employee_skills(employee_id: str, skills_data: SkillsUpdateRequ
         raise HTTPException(status_code=400, detail=str(e))
 
 @api_router.post("/employees/{employee_id}/projects", response_model=EmployeeResponse, tags=["employee-management"])
-async def add_employee_projects(employee_id: str, projects_data: ProjectsUpdateRequest) -> EmployeeResponse:
+async def add_employee_projects(employee_id: str, projects_data: ProjectsUpdateRequest, current_user: dict = Depends(get_current_user)) -> EmployeeResponse:
     """Add new projects to employee (does not remove existing projects)"""
     try:
         # Add VVDN prefix if not present
@@ -445,7 +474,7 @@ async def add_employee_projects(employee_id: str, projects_data: ProjectsUpdateR
         raise HTTPException(status_code=400, detail=str(e))
 
 @api_router.get("/employees/{employee_id}/projects", response_model=ProjectsListResponse, tags=["employee-management"])
-async def list_employee_projects(employee_id: str) -> ProjectsListResponse:
+async def list_employee_projects(employee_id: str, current_user: dict = Depends(get_current_user)) -> ProjectsListResponse:
     """List all projects for an employee"""
     try:
         # Add VVDN prefix if not present
@@ -456,7 +485,7 @@ async def list_employee_projects(employee_id: str) -> ProjectsListResponse:
         raise HTTPException(status_code=404, detail=str(e))
 
 @api_router.delete("/employees/{employee_id}/projects", tags=["employee-management"])
-async def delete_all_employee_projects(employee_id: str) -> Dict[str, Any]:
+async def delete_all_employee_projects(employee_id: str, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Delete all projects for an employee"""
     try:
         # Add VVDN prefix if not present
@@ -472,7 +501,7 @@ async def delete_all_employee_projects(employee_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(e))
 
 @api_router.delete("/employees/{employee_id}/projects/{project_id}", tags=["employee-management"])
-async def delete_employee_project(employee_id: str, project_id: str) -> Dict[str, Any]:
+async def delete_employee_project(employee_id: str, project_id: str, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Delete specific project for an employee"""
     try:
         # Add VVDN prefix if not present
@@ -489,7 +518,7 @@ async def delete_employee_project(employee_id: str, project_id: str) -> Dict[str
         raise HTTPException(status_code=400, detail=str(e))
 
 @api_router.patch("/employees/{employee_id}/profile", response_model=EmployeeResponse, tags=["employee-management"])
-async def update_employee_profile(employee_id: str, profile_data: ProfileUpdateRequest) -> EmployeeResponse:
+async def update_employee_profile(employee_id: str, profile_data: ProfileUpdateRequest, current_user: dict = Depends(get_current_user)) -> EmployeeResponse:
     """Update employee profile information"""
     try:
         # Add VVDN prefix if not present
@@ -506,7 +535,7 @@ async def update_employee_profile(employee_id: str, profile_data: ProfileUpdateR
 
 
 @api_router.get("/dashboard/project_distribution",  response_model=ProjectDistributionResponse, tags=["dashboard"])
-async def project_distribution():
+async def project_distribution(current_user: dict = Depends(get_current_user)):
     """API for total_project count and top-most aligned projects"""
     try:
         result = await dashboard_service.get_project_distribution(top_n=4)
@@ -515,7 +544,7 @@ async def project_distribution():
         raise HTTPException(status_code=400, detail=str(e))
     
 @api_router.get("/dashboard/department_counts", response_model=DepartmentDistributionResponse, tags=["dashboard"])
-async def department_distribution():
+async def department_distribution(current_user: dict = Depends(get_current_user)):
     """Departments and Employee Counts"""
     try:
         result = await dashboard_service.get_department_distribution()
@@ -525,7 +554,7 @@ async def department_distribution():
     
 
 @api_router.get("/dashboard/count_data", response_model=FreepoolCount)
-async def get_dashboard_count():
+async def get_dashboard_count(current_user: dict = Depends(get_current_user)):
     """Freepool, Employee and Projects Count"""
     try:
         result = await dashboard_service.get_dashboard_count_details()
@@ -534,7 +563,7 @@ async def get_dashboard_count():
         raise HTTPException(status_code=400, detail=str(e))
     
 @api_router.get("/dashboard/employees_deployment", tags=["employee-management"])
-async def get_employees_deployment_wise(deployment: DeploymentFilter = Query(...), page: int = Query(1, ge=1), page_size: int = Query(10, ge=1)):
+async def get_employees_deployment_wise(deployment: DeploymentFilter = Query(...), page: int = Query(1, ge=1), page_size: int = Query(10, ge=1), current_user: dict = Depends(get_current_user)):
     """Get Employee Details deployment wise"""
     try:
         result = await dashboard_service.get_employees_deployment_wise(deployment, page, page_size)
@@ -545,7 +574,7 @@ async def get_employees_deployment_wise(deployment: DeploymentFilter = Query(...
     
 
 @api_router.get("/available_employees", response_model=AvailableEmployeesResponse, tags=["employee-management"])
-async def find_available_employees(month_threshold: int = Query(3, ge=0)):
+async def find_available_employees(month_threshold: int = Query(3, ge=0), current_user: dict = Depends(get_current_user)):
     """Find employees who are currently free or whose projects are ending soon"""
     try:
         logger.info(f"🔍 Finding available employees with {month_threshold} months threshold")
@@ -558,7 +587,7 @@ async def find_available_employees(month_threshold: int = Query(3, ge=0)):
 
 
 @api_router.get("/low_occupancy_employees", response_model=LowOccupancyResponse, tags=["employee-management"])
-async def find_low_occupancy_employees(occupancy_threshold: int = Query(50, ge=0, lt=100), long_term_extension_months: int = Query(36, ge=0)) -> LowOccupancyResponse:
+async def find_low_occupancy_employees(occupancy_threshold: int = Query(50, ge=0, lt=100), long_term_extension_months: int = Query(36, ge=0), current_user: dict = Depends(get_current_user)) -> LowOccupancyResponse:
     """Find low occupancy employees based on occupancy and months threshold"""
     try:
         result = low_occupancy_service.find_long_term_low_occupancy_employees(occupancy_threshold=occupancy_threshold, long_term_extension_months=long_term_extension_months)
@@ -569,7 +598,7 @@ async def find_low_occupancy_employees(occupancy_threshold: int = Query(50, ge=0
         raise HTTPException(status_code=400, detail=str(e))
     
 @api_router.get("/dashboard/employee_directory", response_model=EmployeeDirectoryResponse, tags=["employee-management"])
-async def get_employee_directory():
+async def get_employee_directory(current_user: dict = Depends(get_current_user)):
     """Employee Directory Data"""
     try:
         result = await dashboard_service.get_employees_directory()
@@ -579,7 +608,7 @@ async def get_employee_directory():
         raise HTTPException(status_code=400, detail=str(e))
 
 @api_router.post("/ai-analytics")
-async def generate_ai_widgets(request: AIRequest):
+async def generate_ai_widgets(request: AIRequest, current_user: dict = Depends(get_current_user)):
     try:
         logger.info(f"🔍 /ai-analytics API called with prompt: '{request.prompt}\n {request.chartType}'")
         result = await ai_analytics.ai_analytics_service(request)
@@ -589,6 +618,26 @@ async def generate_ai_widgets(request: AIRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
     
+@api_router.post("/register")
+async def user_registration(user: User):
+    try:
+        result = await user_auth._create_registered_user(user.dict())
+        return result
+    except Exception as e:
+        logger.error(f"Error while registering user: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api_router.post("/login")
+async def user_login(user: User):
+    try:
+        result = await user_auth._user_login(user.dict())
+        return result
+    except Exception as e:
+        logger.error(f"Error while Login: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @api_router.websocket("/ws/notification")
 async def websocket_connection(websocket: WebSocket):
     logger.info("Connecting to Web Socket...")

@@ -222,3 +222,13 @@ class EmployeeDirectoryResponse(BaseModel):
 class AIRequest(BaseModel):
     prompt: str
     chartType: str 
+
+class User(BaseModel):
+    username: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    is_active: bool
+    created_at: Optional[str]

@@ -2413,7 +2413,7 @@ class HybridSearchEngine:
 
             Extract and infer the following keys if mentioned or implied:
             - skills: [list of skills/technologies]
-            - context: [list of matching categories] from the list above. Can be multiple for cross-platform skills. Only include if the query involves technical skills.
+            - context: {simplified_groups} Can be multiple domain. Only include if the query mentioned any specific domain(frontend or backend).
             - experience_min: integer years
             - experience_max: integer years
             - deployment: one of [free, billable, support, budgeted]
@@ -2430,13 +2430,24 @@ class HybridSearchEngine:
 
             Rules:
             1. IMPORTANT: Single words that are not technical terms should be treated as employee_name, NOT skills.
-            2. Use appropriate categories:
-            - Skills like Java, Python, Node, .NET, C# → context=["backend"]
-            - Skills like React, Angular, Vue, HTML, CSS → context=["frontend"]
-            - Skills like Android, Kotlin → context=["android"]
-            - Skills like iOS, Swift → context=["ios"]
-            - Skills like Flutter, React Native → context=["android", "ios", "hybrid"]
-            - If it involves both frontend and backend → context=["full stack"]
+            2. CONTEXT EXTRACTION RULE (STRICT):
+            - Only set "context" if the user explicitly mentions:
+            "backend", "frontend", "android", "ios", "hybrid", or "full stack".
+
+            - Do NOT infer context from skills.
+            Examples:
+            "react developer"
+            → skills=["react"]
+            → context NOT SET
+            "react frontend developer"
+            → skills=["react"]
+            → context=["frontend"]
+            "python backend engineer"
+            → skills=["python"]
+            → context=["backend"]
+            If no domain keyword is explicitly written in the query,
+            DO NOT include the context field at all.
+
 
             3. For cross-platform skills (Flutter, React Native), include multiple contexts.
             4. Only use categories from the list above.
@@ -2584,6 +2595,7 @@ class HybridSearchEngine:
             repo = EmployeeRepository()
             tech_groups = repo.get_all_tech_groups()
             departments = repo.get_all_departments()
+            designation = repo.get_all_designations()
 
             # Create simplified mapping - only backend/frontend get generalized
             simplified_groups = set()
@@ -2622,20 +2634,47 @@ class HybridSearchEngine:
 
             Extract and infer the following keys if mentioned or implied:
             - skills: [list of skills/technologies]
-            - context: [list of matching categories] from the list above. Can be multiple for cross-platform skills. Only include if the query involves technical skills.
+                When extracting skills, also include common textual variants of the same skill.
+                Do NOT invent new technologies.
+                Only include obvious spelling or formatting variations.
+                Rules:
+                1. If a skill contains "/" also include a space version.
+                Example:
+                "ui/ux" → ["ui/ux", "ui ux"]
+                2. If a skill commonly appears with "js" suffix:
+                "react" → ["react", "reactjs"]
+                "node" → ["node", "nodejs"]
+                3. If a skill commonly appears without special characters:
+                "c++" → ["c++", "cpp"]
+                4. If the skill contains spaces, also include compact form:
+                "machine learning" → ["machine learning", "machinelearning"]
+                5. Do NOT generate more than 2–3 variants.
+                Examples:
+                Input Query: "UI UX designer"
+                Output:
+                "skills": ["ui/ux", "ui ux"]
+                Input Query: "React developer"
+                Output:
+                "skills": ["react", "reactjs"]
+                Input Query: "Node backend"
+                Output:
+                "skills": ["node", "nodejs"]
+                Return normalized lowercase skills only.
+            - context: [list of domain/technologies] ONLY include if the query explicitly mentioned any specific skill or domain.
             - experience_min: integer years
             - experience_max: integer years
-            - deployment: one of [free, billable, support, budgeted]
+            - deployment: one of [free, billable, support, budgeted, trainee, internal budgeted]
             - location: city or work location
             - department: department name (ONLY if explicitly mentioned in the query)
-            - designation: like engineer, sr engineer etc.
+            - designation: one of {designation} ONLY include if the query explicitly mention any specific value (sr tech lead, junior engineer)
             - project: project name/code if mentioned
             - project_search: true if looking for people who worked on a project
             - project_duration_min_days: integer (minimum number of days in current project/deployment)
             - project_duration_max_days: integer (maximum number of days in current project/deployment)
             - employee_name: name if specific person requested
             - skill_precision: "strict" if user specifies exact skill or says "exact match"
-            - ranking: true or false
+            - ranking: one of [true, false] only choose true if the query specify to rank
+            - skill_context_mode: "OR" | "AND"
 
             If the query mentions a department using a short name or keyword 
             (e.g., "cloud", "vision", "acc"), map it to the most relevant official department name above.
@@ -2658,29 +2697,75 @@ class HybridSearchEngine:
             Words like “all”, “anyone”, “everyone”, “people”, “engineers” must NOT be names.
 
             4. IMPORTANT: Single words that are not technical terms should be treated as employee_name, NOT skills.
-            5. Use appropriate categories:
-            - Skills like Java, Python, Node, .NET, C# → context=["backend", "full stack"]
-            - Skills like React, Angular, Vue, HTML, CSS → context=["frontend", "full stack"]
-            - Skills like Android, Kotlin → context=["android", "hybrid", "android"]
-            - Skills like iOS, Swift → context=["ios", "hybrid", "android"]
-            - Skills like Flutter, React Native → context=["android", "ios", "hybrid"]
-            - If it involves both frontend and backend → context=["full stack", "backend", "frontend"]
+            5. SKILL & CONTEXT EXTRACTION RULE
+                The system filters employees using:
+                - skills (employee skill table)
+                - context (employee tech_group column)
+                Follow these rules strictly:
+                If the query contains a specific technology
+                (e.g., react, python, java, angular, node, android, flutter, .net, etc.)
+                AND does NOT contain a PURE domain word:
+                → skills = ["technology"]
+                → context = ["technology"]
+                → skill_context_mode = "OR"
+                Both must be set to the SAME value.
 
-            6. For cross-platform skills (Flutter, React Native), include multiple contexts.
-            7. If query is a single word and not a known technology, treat it as employee_name.
+                2. If the query contains ONLY a domain word:
+                "backend", "frontend", "android", "ios", "hybrid", "full stack"
+                → Set only:
+                    context = ["domain"]
+                → Do NOT set skills
+                → Do NOT set skill_context_mode
 
-            8. Never treat generic project-related phrases as a project name.
+                3. If the query contains BOTH:
+                - a specific technology
+                - AND a domain word
+                Example:
+                "react frontend developer"
+                "python backend engineer"
+                → skills = ["technology"]
+                → context = ["domain"]
+                → skill_context_mode = "AND"
+                "Designer skilled employee"
+                → skills = ["technology"]
+                → context = ["Design"]
+                → skill_context_mode = "OR"
+
+                4. If multiple technologies are mentioned:
+                "react and angular developers"
+                → skills = ["react", "angular"]
+                → context = ["react", "angular"]
+                → skill_context_mode = "OR"
+                "react and angular frontend developers"
+                skills = ["react", "angular"]
+                context = ["frontend"]
+                → skill_context_mode = "AND"
+
+                IMPORTANT:
+
+                1. Only include "skill_context_mode" when BOTH skills AND context exist.
+                2. If only context exists → DO NOT include skill_context_mode.
+                3. If neither skill nor domain exists → DO NOT include skills, context, or skill_context_mode.
+                4. Never infer domain from skill.
+                5. Never auto-map react → frontend.
+                6. Never expand a skill into multiple contexts.
+            6. If query is a single word and not a known technology, treat it as employee_name.
+
+            7. Never treat generic project-related phrases as a project name.
             Phrases such as “project requirement”, “project needs”, “project work”, 
             “project team”, “project hiring”, “project resources”, “project request”,
             or any other generic noun phrase mentioning the word “project”
             must NOT be interpreted as a project code or project name.
 
-            9. If a skill is used in multiple domains (like JavaScript), include all applicable contexts
-            (e.g. "js", "javascript" → frontend + backend + Full stack, "react" → frontend + backend + full stack, "dart" -> android + ios + hybrid).
-            - If a skill is unknown, the LLM should decide whether it is backend, frontend, or fullstack by its naming pattern or typical industry usage.
-            - Do NOT infer unrelated contexts (e.g., do not map backend skills to mobile).
+            8. NEVER auto-expand a skill into multiple contexts.
+            If a specific technology is mentioned and no domain word exists in the query:
+            → skills = ["technology"]
+            → context = ["technology"]
+            → skill_context_mode = "OR"
+            Do NOT infer frontend/backend/mobile automatically.
+            Only use domain words if explicitly written in the query.
 
-            10. Determine if ranking is required:
+            9. Determine if ranking is required:
 
             Set "ranking": true when:
             - The query implies quality comparison or prioritization
@@ -2701,7 +2786,7 @@ class HybridSearchEngine:
             when the query clearly refers to an actual, identifiable project name or code 
             (e.g., 'EXNI_CLRQ', 'Netgear IMDV', 'Extreme project', etc.).
 
-            11. Duration / Tenure Parsing Rules:
+            10. Duration / Tenure Parsing Rules:
 
             If the query contains phrases like:
             - "for more than 60 days"
@@ -2874,11 +2959,14 @@ class HybridSearchEngine:
             location = parsed_query.get("location")
             department = parsed_query.get("department")
             deployment = parsed_query.get("deployment")
+            designation = parsed_query.get("designation")
             project = parsed_query.get("project")
             experience_min = parsed_query.get("experience_min")
+            experience_max = parsed_query.get("experience_max")
             employee_name = parsed_query.get("employee_name")
             project_duration_min_days = parsed_query.get("project_duration_min_days")
             project_duration_max_days = parsed_query.get("project_duration_max_days")
+            skill_context_mode = parsed_query.get("skill_context_mode")
 
             semantic_skills = []
             if skills:
@@ -2926,12 +3014,22 @@ class HybridSearchEngine:
                 context_condition_block = "(" + " OR ".join(context_subconds) + ")"
 
             if skill_condition_block and context_condition_block:
-                conditions.append(f"({skill_condition_block} OR {context_condition_block})")
+                if skill_context_mode == "AND":
+                    # React frontend → skill AND tech_group
+                    conditions.append(skill_condition_block)
+                    conditions.append(context_condition_block)
+                else:
+                    # Default OR behavior
+                    conditions.append(
+                        f"({skill_condition_block} OR {context_condition_block})"
+                    )
 
             elif skill_condition_block:
+                # Only skills exist
                 conditions.append(skill_condition_block)
 
             elif context_condition_block:
+                # Only context exists
                 conditions.append(context_condition_block)
 
             if location:
@@ -2940,6 +3038,9 @@ class HybridSearchEngine:
             if department:
                 conditions.append("e.employee_department ILIKE :dept")
                 params["dept"] = f"%{department}%"
+            if designation:
+                conditions.append("e.designation ILIKE :designation")
+                params["designation"] = f"%{designation}%"
             if deployment:
                 conditions.append("ep.deployment ILIKE :dep")
                 params["dep"] = f"%{deployment}%"
@@ -3011,12 +3112,17 @@ class HybridSearchEngine:
 
             sql_results = []
             with get_db_session() as session:
+                logger.info(f"---------{base_query}---------")
                 result = session.execute(text(base_query), params)
                 for row in result:
                     emp = dict(row._mapping)
                     if experience_min:
                         exp = self._parse_experience_years(emp.get("total_exp", "")) or 0
                         if exp < experience_min:
+                            continue
+                    if experience_max:
+                        exp = self._parse_experience_years(emp.get("total_exp", "")) or 0
+                        if exp > experience_max:
                             continue
                     emp["selection_reason"] = self._generate_selection_reason(emp, parsed_query)
                     sql_results.append({
@@ -3383,28 +3489,19 @@ class HybridSearchEngine:
     async def _listing_query_generation(self, parsed_query: Dict[str, Any], query: str):
         try:
             schema_prompt = """
-                You are generating a PostgreSQL SELECT query.
+                You are generating ONLY PostgreSQL WHERE conditions.
 
                 STRICT RULES:
-                - Always SELECT from employees e
-                - Always LEFT JOIN employee_projects ep ON e.employee_id = ep.employee_id
-                - Always include projects as JSON aggregation using json_agg + jsonb_build_object
-                - Always GROUP BY e.employee_id
-                - Always ORDER BY split_part(e.employee_id, '/', 2)::int
-                - NEVER modify data (no INSERT, UPDATE, DELETE, DROP, TRUNCATE)
-                - NEVER remove the JSON aggregation
-                - NEVER change SELECT structure
-                - ONLY modify the WHERE clause
-                - Always start WHERE with: WHERE 1=1
-                - Use ILIKE for text filtering unless strict match required
-                - When filtering total_exp always use:
-                CAST(e.total_exp AS INTEGER)
-                - Return ONLY raw SQL
-                - Do NOT explain anything
+                - Generate ONLY dynamic filter conditions.
+                - Every condition MUST start with AND.
+                - Do NOT generate SELECT, FROM, JOIN, GROUP BY, ORDER BY.
+                - Do NOT explain anything.
+                - Return ONLY raw SQL conditions.
+                - If no filters exist, return empty string.
 
                 DATABASE TABLES:
 
-                employees:
+                employees (alias: e):
                 - employee_id
                 - display_name
                 - employee_department
@@ -3414,7 +3511,7 @@ class HybridSearchEngine:
                 - skill_set
                 - total_exp
 
-                employee_projects:
+                employee_projects (alias: ep):
                 - id
                 - employee_id
                 - project_name
@@ -3427,189 +3524,119 @@ class HybridSearchEngine:
                 - occupancy
                 - project_extended_end_date
                 - project_joined_date
-            """
-            prompt = f"""
-            {schema_prompt}
 
-            FIXED QUERY STRUCTURE (DO NOT CHANGE THIS STRUCTURE):
+                FILTER RULES:
 
-            SELECT 
-                e.*,
-                COALESCE(
-                    json_agg(
-                        jsonb_build_object(
-                            'id', ep.id,
-                            'project_name', ep.project_name,
-                            'customer', ep.customer,
-                            'project_department', ep.project_department,
-                            'project_industry', ep.project_industry,
-                            'project_status', ep.project_status,
-                            'occupancy', ep.occupancy,
-                            'project_joined_date', ep.project_joined_date,
-                            'project_extended_end_date', ep.project_extended_end_date,
-                            'role', ep.role,
-                            'deployment', ep.deployment
+                - skills → e.skill_set ILIKE
+                - context → e.tech_group ILIKE
+                - skills/context filtering is independent and MUST always be generated when values exist.
+                    SKILL & CONTEXT COMBINATION RULE:
+                    - skills → e.skill_set ILIKE
+                    - context → e.tech_group ILIKE
+                    If BOTH "skills" and "context" exist:
+                        Check "skill_context_mode":
+                        1. If skill_context_mode = "OR":
+                            Generate:
+
+                            AND (
+                                (skill conditions)
+                                OR
+                                (context conditions)
+                            )
+
+                        2. If skill_context_mode = "AND":
+                            Generate:
+
+                            AND (
+                                (skill conditions)
+                            )
+                            AND (
+                                (context conditions)
+                            )
+
+                    If ONLY skills exist:
+                        Generate skill conditions normally using AND.
+                    If ONLY context exists:
+                        Generate context conditions normally using AND.
+                    MULTI-VALUE RULE:
+                    If a field contains multiple values (array),
+                    use OR between values inside parentheses.
+                    Example for skills = ["react", "angular"]:
+
+                    AND (
+                        e.skill_set ILIKE '%react%'
+                        OR e.skill_set ILIKE '%angular%'
+                    )
+                - experience_min →
+                COALESCE((regexp_match(e.total_exp, '(\\d+\\.?\\d*)'))[1]::float, 0) >= value
+                - experience_max →
+                COALESCE((regexp_match(e.total_exp, '(\\d+\\.?\\d*)'))[1]::float, 0) < value
+                - department → e.employee_department ILIKE
+                - designation → e.designation ILIKE
+                - location → e.emp_location ILIKE
+                - employee_name → e.display_name ILIKE
+                - deployment → 
+                    Use EXISTS to filter employees who have at least one project with the given deployment.
+                    Generate condition using employee_projects subquery:
+
+                    AND EXISTS (
+                        SELECT 1
+                        FROM employee_projects ep2
+                        WHERE ep2.employee_id = e.employee_id
+                        AND ep2.deployment ILIKE '%value%'
+                    )
+
+                    If multiple deployment values exist, use OR inside the EXISTS condition.
+
+                    Example for deployment = ["free","trai"]:
+
+                    AND EXISTS (
+                        SELECT 1
+                        FROM employee_projects ep2
+                        WHERE ep2.employee_id = e.employee_id
+                        AND (
+                            ep2.deployment ILIKE '%free%'
+                            OR ep2.deployment ILIKE '%trai%'
                         )
-                    ) FILTER (WHERE ep.id IS NOT NULL),
-                    '[]'
-                ) AS projects
-            FROM employees e
-            LEFT JOIN employee_projects ep 
-                ON e.employee_id = ep.employee_id
-            WHERE 1=1
-            -- dynamic filters here
-            GROUP BY e.employee_id
-            ORDER BY split_part(e.employee_id, '/', 2)::int;
+                    )
+                - project → ep.project_name ILIKE
 
-            FILTER CONDITIONS (JSON):
-            {json.dumps(parsed_query, indent=2)}
+                MULTI-VALUE RULE:
+                If a field contains multiple values (array),
+                use OR between values inside parentheses.
 
-            - skills → filter using e.skill_set
-            - context → filter using e.tech_group
-                STRICT LOGIC:
-                    1. Expand ALL skills into:
-                    (e.skill_set ILIKE '%value1%' OR e.skill_set ILIKE '%value2%')
-                    2. Expand ALL context into:
-                    (e.tech_group ILIKE '%value1%' OR e.tech_group ILIKE '%value2%')
-                    3. If BOTH skills AND context exist:
-                    Merge BOTH expanded groups into ONE single OR block (flattened).
                 Example:
-                skills = ["android"]
-                context = ["android", "hybrid"]
+                location = ["kochi", "pollachi"]
 
                 Generate:
 
                 AND (
-                    e.skill_set ILIKE '%android%'
-                    OR e.tech_group ILIKE '%android%'
-                    OR e.tech_group ILIKE '%hybrid%'
+                    e.emp_location ILIKE '%kochi%'
+                    OR e.emp_location ILIKE '%pollachi%'
                 )
 
-                Do NOT nest parentheses.
-                Do NOT drop any value.
-                Do NOT use AND between skills and context.
-            - experience_min →
-                CAST(e.total_exp AS INTEGER) >= value
-            - experience_max →
-                CAST(e.total_exp AS INTEGER) <= value
-            - department → e.employee_department ILIKE
-            - designation → e.designation ILIKE
-            - location → e.emp_location ILIKE
-            - employee_name → e.display_name ILIKE
-            - deployment → ep.deployment ILIKE
-            - project → ep.project_name ILIKE
-            - project_search=true → ensure project filter exists
-            - If any field other than skills/context contains multiple values (array),
-            use OR between those values inside parentheses.
-            Example:
-            location = ["kochi", "pollachi"]
-            Generate:
+                Use AND only between different fields.
 
-            AND (
-                e.emp_location ILIKE '%kochi%'
-                OR e.emp_location ILIKE '%pollachi%'
-            )
-            Apply this rule to:
-            - location
-            - department
-            - designation
-            - employee_name
-            - deployment
-            - project
-            Use AND only between different fields.
-            Example:
-            If context = ["backend", "full stack"]
-            Generate:
-            AND (
-                e.tech_group ILIKE '%backend%'
-                OR e.tech_group ILIKE '%full stack%'
-            )
-
-            - project_duration_min_days →
+                PROJECT DURATION RULE:
                 Apply ONLY if project OR deployment filter exists.
-                Filter using:
 
+                - project_duration_min_days →
                 ep.project_joined_date <= CURRENT_DATE - INTERVAL '1 day' * value
 
-            - project_duration_max_days →
-                Apply ONLY if project OR deployment filter exists.
-                Filter using:
-
+                - project_duration_max_days →
                 ep.project_joined_date >= CURRENT_DATE - INTERVAL '1 day' * value
 
-            - Duration must ALWAYS apply to employee_projects table (ep).
-            - NEVER apply duration on employees table.
-            - NEVER confuse total_exp with project duration.
-            - total_exp is employee experience.
-            - project_duration_* is project time duration.
+                NULL HANDLING:
+                - Ignore null values
+                - Ignore empty arrays []
+                - Never generate empty AND ()
 
-            - Never use AND between values of the same field.
-            - Use AND only between different fields.
+                Now generate WHERE conditions for this JSON:
+            """
+            prompt = f"""
+                {schema_prompt}
 
-            PROJECT DURATION LOGIC:
-            - project_duration_min_days and project_duration_max_days are completely different from experience_min and experience_max.
-            - experience_* filters employees table using total_exp.
-            - project_duration_* filters employee_projects table using start_date.
-
-            - Apply project_duration filters ONLY if:
-                - project exists OR deployment exists
-            - project_duration_min_days →
-                ep.project_joined_date <= CURRENT_DATE - INTERVAL '1 day' * value
-            - project_duration_max_days →
-                ep.project_joined_date >= CURRENT_DATE - INTERVAL '1 day' * value
-            - NEVER apply project_duration if project and deployment are both missing.
-
-            SAMPLE INPUT JSON:
-
-            {{
-            "skills": ["android"],
-            "context": ["android", "hybrid"],
-            "experience_min": 3,
-            "location": ["Bangalore", "Pollachi"],
-            "ranking": false
-            }}
-
-            SAMPLE OUTPUT SQL:
-
-            SELECT 
-                e.*,
-                COALESCE(
-                    json_agg(
-                        jsonb_build_object(
-                            'id', ep.id,
-                            'project_name', ep.project_name,
-                            'customer', ep.customer,
-                            'project_department', ep.project_department,
-                            'project_industry', ep.project_industry,
-                            'project_status', ep.project_status,
-                            'occupancy', ep.occupancy,
-                            'start_date', ep.start_date,
-                            'end_date', ep.end_date,
-                            'role', ep.role,
-                            'deployment', ep.deployment
-                        )
-                    ) FILTER (WHERE ep.id IS NOT NULL),
-                    '[]'
-                ) AS projects
-            FROM employees e
-            LEFT JOIN employee_projects ep 
-                ON e.employee_id = ep.employee_id
-            WHERE 1=1
-            AND (
-                e.skill_set ILIKE '%android%'
-                OR
-                e.tech_group ILIKE '%android%'
-                OR e.tech_group ILIKE '%hybrid%'
-            )
-            AND CAST(e.total_exp AS INTEGER) >= 3
-            AND (e.emp_location ILIKE '%Bangalore%'
-                OR e.emp_location ILIKE '%Pollachi%'
-            )
-            GROUP BY e.employee_id
-            ORDER BY split_part(e.employee_id, '/', 2)::int;
-
-            Now generate the SQL query for the provided FILTER CONDITIONS.
-            Return ONLY the SQL query.
+                {json.dumps(parsed_query, indent=2)}
             """
             try:
                 response = self.llm.generate_content(
@@ -3625,7 +3652,37 @@ class HybridSearchEngine:
                     sql_query = sql_query.replace("sql", "", 1).strip()
                     sql_query = sql_query.replace("```", "").strip()
                 logger.info(sql_query)
-                return sql_query
+                base_query = """
+                SELECT 
+                    e.*,
+                    COALESCE(
+                        json_agg(
+                            jsonb_build_object(
+                                'id', ep.id,
+                                'project_name', ep.project_name,
+                                'customer', ep.customer,
+                                'project_department', ep.project_department,
+                                'project_industry', ep.project_industry,
+                                'project_status', ep.project_status,
+                                'occupancy', ep.occupancy,
+                                'project_joined_date', ep.project_joined_date,
+                                'project_extended_end_date', ep.project_extended_end_date,
+                                'role', ep.role,
+                                'deployment', ep.deployment
+                            )
+                        ) FILTER (WHERE ep.id IS NOT NULL),
+                        '[]'
+                    ) AS projects
+                FROM employees e
+                LEFT JOIN employee_projects ep 
+                    ON e.employee_id = ep.employee_id
+                WHERE 1=1"""
+                final_query = base_query + "\n" + sql_query + """
+                GROUP BY e.employee_id
+                ORDER BY split_part(e.employee_id, '/', 2)::int;
+                """
+                logger.info(final_query)
+                return final_query
             except Exception as e:
                 logger.error(e)
                 return

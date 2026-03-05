@@ -1983,7 +1983,7 @@ EMPLOYEES:
                 
                 # 1. SKILL SCORE
                 if perfect_skill_match:
-                    skill_score = 95.0
+                    skill_score = 90.0
                 elif good_skill_match:
                     skill_score = 70.0
                 else:
@@ -2008,16 +2008,7 @@ EMPLOYEES:
                     tech_score = 80.0
                 
                 # 3. EXPERIENCE SCORE
-                if exp_years >= 8:
-                    exp_score = 100.0
-                elif exp_years >= 5:
-                    exp_score = 80.0
-                elif exp_years >= 3:
-                    exp_score = 60.0
-                elif exp_years >= 1:
-                    exp_score = 40.0
-                else:
-                    exp_score = 20.0
+                exp_score = min(100, int(10 + exp_years * 9))
                 
                 # 4. AVAILABILITY SCORE (LOW for external-heavy)
                 if perfect_skill_match:
@@ -2041,7 +2032,6 @@ EMPLOYEES:
                     "ai_score": round(overall_score, 1),  # FIXED LOW SCORE
                     "ai_criteria": {
                         "Skill": round(skill_score, 1),
-                        "TechGroup": round(tech_score, 1),
                         "Availability": round(availability_score, 1),
                         "Experience": round(exp_score, 1)
                     },
@@ -2091,32 +2081,35 @@ EMPLOYEES:
         )
 
         logger.info(f"⚡ Running LLM PDP ranking for {len(employees)} candidates...")
+        logger.info(f"\n{profiles_text}\n")
 
         prompt = f"""
 You are an expert HR evaluator performing PURE reasoning-style ranking using a PDP
 (Preference–Demotion–Promotion) framework.
 
 You must produce for each employee:
-1) A TIER (1–4)
-2) Reasoning must be short justification why the employee received THIS tier and score. No filler words. No repetition.
-3) A set of numeric scores: Skill XX, TechGroup XX, Availability XX, Experience XX, OverallScore XX
+1) A short HR reasoning
+2) A set of numeric scores: Skill XX, Availability XX, Experience XX, 
 
 PRIORITY REASONING:
-- Do NOT explain skills.
-- Focus only on availability first, then Project, then Domain (If Needed).
-- Use one short priority-driven statement.
-Keep it extremely short.
-No comparison words.
-No explanations.
-No restating scores.
+- 1–2 short sentences only.
+- Must mention:
+    - Why this employee considered or not considered
+    - Skill relevance
+    - Domain alignment or mismatch
+    - Availability impact (primary factor)
+    - If training, mention currently in training
+    - If fully free, say fully available
 
 Constraints:
-- Reasoning MUST be fully grounded ONLY in the compact record.
 - No hallucinated skills, customers, or roles.
-- Mention tech-group match or mismatch, basic skill alignment, internal vs external work, and rough availability.
 - NEVER output raw internal codes like "FR", "BK", "SH", "RD", "BU", "BIL", "CRD", "IN".
 - NEVER output raw DEP_DETAIL strings or customer tokens like "EXTREMENETWORKS" or "VVDNINTERNALPROJECT".
-- Use generic phrases like "internal company project", "external client project", "fully occupied on client work", etc.
+
+
+No internal codes.
+No structured explanation.
+No extra commentary.
 
 COMPACT FORMAT:
 id|role_code|tech_group|location|experience_years|project_count|department|DEP_SUMMARY|DEP_DETAIL|skills
@@ -2129,170 +2122,94 @@ CODE:OCCUPANCY:CUSTOMER_TOKEN
 Examples:
 IN:10:VVDNINTERNAL;BUD:90:CUSTOMER
 
-SKILL INTERPRETATION RULES:
-- Analyze skills carefully to detect cross-platform capabilities:
-  • Frontend + Backend skills = Full Stack capability
-  • Mobile + Web skills (Android + React, iOS + Flutter) = Cross-Platform capability
-  • Multiple backend languages (Java + Python + Node) = Polyglot backend capability
-- Even if tech_group doesn't mention "Full Stack" or "Hybrid", consider skill combinations
-- Give credit for versatile skill sets that match project requirements across domains
-- "JavaScript" and "Java" are COMPLETELY different technologies - never confuse them
-- "Java Script" = JavaScript (frontend), NOT Java (backend)
-- Only match exact skills, not partial matches
-
-INTERNAL PROJECT OVERRIDE (highest priority):
-If ANY DEP_DETAIL entry has CUSTOMER containing "VVDN" or "INTERNAL":
-    → Employee is on internal company work
-    → MUST be Tier 1 or 2 (NEVER Tier 3 or 4)
-    → Occupancy decides within {1,2}:
-        0–50 total internal occupancy → Tier 1
-        >50–100 internal occupancy   → Tier 1 (still internal, high priority)
-
-Internal projects include: VVDNINTERNALPROJECT, VVDNTRAINING, etc.
-CRITICAL RULE (APPLIES FIRST, OVERRIDES ALL OTHER RULES):
-- If ANY external occupancy ≥ 80% AND experience_years < 5 AND role is not senior → MUST be Tier 3 or 4 ONLY. Internal projects do NOT override this rule.
-- If Free (FR), this employee should have the top tier 1 and score even compared with Internal projects.
-
-If an employee is FREE (FR) in deployment and their skills + tech_group match the job query:
-→ They MUST be Tier 1 and placed at the top of Tier 1.
-→ Experience does NOT override FR availability.
-→ No employee with lower availability should outrank a FREE employee if the conditions match
-
-SHADOW/BACKUP EXCEPTION (APPLIES AFTER CRITICAL RULE):
-- Shadow/Backup (SH/BK) deployments are special cases:
-  • If on Internal projects → Can be Tier 1 (low end)
-  • If on External projects with low occupancy (<50%) → Can be Tier 2
-  • If on External projects with high occupancy (≥80%) → Still subject to CRITICAL RULE above
-- Shadow/Backup indicates learning/support role with more flexibility than billable roles
-
-CUSTOMER DETECTION RULES:
-- Internal project ONLY if CUSTOMER_TOKEN contains "VVDN" or "INTERNAL"
-- All other customers are EXTERNAL clients
-- Never assume a project is internal unless explicitly marked
-
-HIGH-LEVEL RULES:
-- If tech_group and/or skills clearly match the PROJECT QUERY domain → they can be Tier 1–2,
-  subject to availability.
-- If they are clearly in a different domain and skills do not match → Tier 3–4.
-- Internal company work usually indicates better redeployability than heavy external client work.
-- Higher occupancy on external client work reduces availability unless employee is on deployments SH/BK.
-- More experience slightly improves the tier, but never fully compensates for very poor availability.
 
 SCORING:
-- Skill, TechGroup, Availability, Experience: return values between 0 and 100.
+- Skill, Availability, Experience: return values between 0 and 100.
 
-AVAILABILITY SCORING:
-1. If any deployment has code FR: → Availability = 100 (fully available).
-2. Else if there is ANY external work (BIL, BU, BUD, IB, CRD):
-   → Availability = max(0, 40 - total_external_occupancy/2).
-     (Example: 100% external → 0, 80% external → 0, 60% external → 10, 50% external → 15, 30% external → 25.)
-3. Else (only internal work: IN, RD, SH, BK):
-   → Availability = max(30, 100 - total_internal_occupancy/2).
-     (Example: 100% internal → 50, 80% internal → 60, 50% internal → 75, 30% internal → 85.)
+====================================================
 
-SKILL SCORING (PRECISE VALUES):
-- Direct match to ALL required skills: 90-100
-- Direct match to PRIMARY skill only: 70-85  
-- Partial/related match: 50-69
-- Basic match: 30-49
-- No match: 0-29
+AVAILABILITY (STRICT IMPORTANT)
 
-SCORE BASED ON SKILL MATCH QUALITY:
-1. EXCELLENT MATCH (90-100):
-   - Has ALL required skills from query
-   - PLUS demonstrates advanced knowledge/certifications
-   - PLUS has related complementary skills
-   Example for Python Django query: "Python, Django, Flask, REST APIs, SQL" = 95-100
-2. VERY GOOD MATCH (80-89):
-   - Has ALL required skills from query
-   - Basic level without advanced expertise
-   Example: "Python, Django" = 85-89
-3. GOOD MATCH (70-79):
-   - Has PRIMARY required skill with depth
-   - Missing some secondary required skills
-   Example: "Python Level 2, OOPs, Modules" (no Django) = 72-78
-4. BASIC MATCH (60-69):
-   - Has PRIMARY required skill at basic level
-   - No advanced knowledge demonstrated
-   Example: "Python" (only, no Django, no advanced topics) = 62-68
-5. PARTIAL MATCH (50-59):
-   - Has some related skills but not direct match
-   Example: "Java, Spring" for Python query = 52-58
-6. WEAK MATCH (40-49):
-   - Very basic or marginally related skills
-   Example: "C programming" for Python query = 42-48
-7. NO MATCH (0-39):
-   - Completely unrelated skills
+1. For each deployment entry:
+   - Multiply occupancy by weight.
+   - Round result immediately to nearest integer.
+2. Sum rounded values.
+3. Apply experience bonus if >8 years.
+4. Cap final result at 100.
+5. Apply BIL override at the very end.
 
-TECH GROUP SCORING (MUST FOLLOW QUERY ANALYSIS):
+Never change this order.
+Never skip rounding step.
+Never interpret internal vs external beyond the mapping table.
 
-ANALYZE THE INPUT QUERY
+FR  → OCCUPANCY
+TR  → OCCUPANCY × 0.5
+RD  → OCCUPANCY × 0.5
+IB  → OCCUPANCY × 0.33
+SH  → OCCUPANCY × 0.33
+BK  → OCCUPANCY × 0.25
+BU  → OCCUPANCY × 0.1
+BIL → 0
 
-IF QUERY MENTIONS SPECIFIC TECHNOLOGY (Python, Java, Android, React, etc):
-- Tech groups containing that specific technology: 90-100 (EXACT MATCH)
-- Other tech groups in same domain: 70-85 (RELATED)
-- Full Stack tech groups: 75-90 (VERSATILE)
-- Other domains: 30-65 (PARTIAL/MISMATCH)
+ABSOLUTE RULE:
+If DEP_DETAIL is exactly:
+FR:100:INTERNAL
+and nothing else
+→ Availability = 100
+FR:30:INTERNAL;BIL:50:<anything>;RD:20:INTERNAL
+→ Availability = 30 + 0 + 10 = 40
 
-IF QUERY MENTIONS DOMAIN ONLY (backend, frontend, mobile):
-- Tech groups in that exact domain: 85-100 (EXACT MATCH)
-- Full Stack tech groups: 80-95 (VERSATILE)
-- Related domains: 60-80 (RELATED)
-- Different domains: 30-55 (MISMATCH)
+MANDATORY OVERRIDES:
+If any single BIL occupancy ≥ 70 → Availability must be < 20.
 
-TECH GROUP SCORING EXAMPLES BASED ON QUERY:
+FREE means real free capacity.
+Do NOT reduce FREE.
+Training reduces bandwidth proportionally.
 
-FOR PYTHON-RELATED QUERIES:
-- Backend - Python: 95-100 (EXACT MATCH)
-- Other Backend (Java, NodeJS, .NET): 65-80 (BACKEND DOMAIN)
-- Full Stack: 75-90 (CAN DO PYTHON BACKEND)
-- Frontend (React, Angular, Vue): 40-60 (DIFFERENT DOMAIN)
-- Mobile (Android, iOS): 35-55 (DIFFERENT DOMAIN)
-- Database/DevOps: 50-70 (RELATED)
+====================================================
 
-FOR BACKEND-ONLY QUERIES:
-- All Backend groups (Python, Java, NodeJS): 85-100
-- Full Stack: 80-95
-- Frontend: 45-65
-- Mobile: 40-60
+SKILL SCORE (INTEGER FIXED VALUES)
 
-FOR ANDROID-RELATED QUERIES:
-- Android: 95-100
-- iOS, Hybrid Mobile: 70-85
-- Full Stack: 65-80
-- Backend: 50-70
-- Frontend: 45-65
+Identify required domain from PROJECT QUERY.
 
-SPECIAL CASE: "Backend - DB" TECH GROUP
-- For backend queries: Score 70-85 (specialized backend but not application development)
-- For Python/Java/Node backend queries: Score 60-75 (database skills are related but not core development)
-- For frontend/mobile queries: Score 40-60 (different domain)
+Clusters:
 
-EXPERIENCE SCORING (PRECISE VALUES):
-- 0-1 years: 20
-- 1-3 years: 40  
-- 3-5 years: 60
-- 5-8 years: 80
-- 8+ years: 100
+Frontend: React, Angular, Vue, JavaScript, TypeScript, HTML, CSS
+Backend: Java, Spring, Node, Python backend, .NET, APIs, Microservices
+Mobile: Android, Kotlin, Java(Android), iOS, Swift, Flutter
+DevOps: Docker, Kubernetes, CI/CD, AWS, Azure, GCP
 
-OVERALL SCORE CALCULATION:
-OverallScore = (Skill × 0.35) + (TechGroup × 0.25) + (Availability × 0.25) + (Experience × 0.15)
+Scoring (use EXACT values only):
 
-TIER BOUNDARIES (STRICT):
-- Tier 1: OverallScore ≥ 80
-- Tier 2: OverallScore 41-79
-- Tier 3: OverallScore 20-40
-- Tier 4: OverallScore 0-19
+Exact skill + same domain → 90
+Different framework but same domain → 85
+Fullstack partial match → 70
+Skill exists but different domain → 50
+No relevant domain → 30
+
+Only allowed values:
+30, 50, 70, 85, 90
+
+====================================================
+
+EXPERIENCE SCORE
+
+ExperienceScore = 10 + (experience_years × 9)
+
+Cap at 100.
+Integer only.
+
+====================================================
 
 SCORING EXAMPLES FOR REFERENCE:
-1. Free employee with perfect skills: Skill=95, TechGroup=95, Availability=100, Experience=40 → Score=86 → Tier 1
-2. Internal employee with good match: Skill=80, TechGroup=85, Availability=50, Experience=60 → Score=70 → Tier 2
-3. External-heavy with partial skills: Skill=60, TechGroup=70, Availability=10, Experience=40 → Score=47 → Tier 2
-4. External-heavy with no skills: Skill=30, TechGroup=40, Availability=5, Experience=20 → Score=25 → Tier 3
-5. Mismatch with high experience: Skill=40, TechGroup=30, Availability=30, Experience=100 → Score=45 → Tier 2
+1. Free employee with perfect skills and 10+ years of expereince: Skill=95, Availability=100, Experience=100
+2. Internal employee with good match: Skill=80, Availability=50, Experience=60
+3. External-heavy with partial skills and 4+ years experience: Skill=60, Availability=10, Experience=40 
+4. External-heavy with no skills: Skill=30, Availability=10, Experience=20
+5. Mismatch with high experience: Skill=10, Availability=10, Experience=100
 
 OUTPUT FORMAT (STRICT, ONE LINE PER EMPLOYEE):
-emp_id | TIER <1–4> | OverallScore XX | [Skill XX, TechGroup XX, Availability XX, Experience XX] | <exactly 2 concise sentences HR reasoning>
+emp_id | [Skill XX, Availability XX, Experience XX] | <exactly 2 concise sentences HR reasoning>
 
 Do NOT add any extra lines or commentary.
 Do NOT output scores with decimal points (use whole numbers).
@@ -2317,43 +2234,60 @@ EMPLOYEES:
         # Simple parsing for format: emp_id|tier|score|[criteria]|reasoning
         for line in clean.splitlines():
             line = line.strip()
+            logger.info(line)
             if not line or "|" not in line:
                 continue
                 
             parts = [p.strip() for p in line.split("|")]
-            if len(parts) < 5:
+            if len(parts) < 3:
                 logger.warning(f"⚠️ LLM line skipped (insufficient parts): {line}")
                 continue
                 
             try:
                 emp_id = parts[0].replace("VVDN/", "").strip()
-                # Extract tier number - handle both "TIER 1" and "1" formats
-                tier_text = parts[1].upper().replace("TIER", "").strip()
-                # Extract first number found in the tier text
-                tier_match = re.search(r'(\d+)', tier_text)
-                tier = int(tier_match.group(1)) if tier_match else 4
-                score = float(parts[2].replace("OverallScore", "").strip())
+                # # Extract tier number - handle both "TIER 1" and "1" formats
+                # tier_text = parts[1].upper().replace("TIER", "").strip()
+                # # Extract first number found in the tier text
+                # tier_match = re.search(r'(\d+)', tier_text)
+                # tier = int(tier_match.group(1)) if tier_match else 4
+                # score = float(parts[2].replace("OverallScore", "").strip())
                 
                 # Parse criteria - handle both formats
-                criteria_text = parts[3]
+                criteria_text = parts[1]
                 ai_criteria = {}
                 
                 # Extract numbers from brackets [100, 100, 100, 167, 95]
                 numbers = re.findall(r'\d+', criteria_text)
-                if len(numbers) >= 4:
+                if len(numbers) >= 3:
+                    skill = float(numbers[0])
+                    avail = float(numbers[1])
+                    exp = float(numbers[2])
                     ai_criteria = {
-                        "Skill": float(numbers[0]),
-                        "TechGroup": float(numbers[1]), 
-                        "Availability": float(numbers[2]),
-                        "Experience": float(numbers[3])
+                        "Skill": skill,
+                        "Availability": avail, 
+                        "Experience": exp
                     }
                 else:
                     # Fallback to named parsing
-                    for crit in ["Skill", "TechGroup", "Availability", "Experience"]:
+                    for crit in ["Skill", "Availability", "Experience"]:
                         match = re.search(fr"{crit}\s*[:=\s]\s*([0-9]+)", criteria_text, re.I)
-                        ai_criteria[crit] = float(match.group(1)) if match else 0.0
+                        ai_criteria[crit] = float(match.group(1)) if match else 0.
+                    skill = ai_criteria["Skill"]
+                    avail = ai_criteria["Availability"]
+                    exp = ai_criteria["Experience"]
                 
-                reason_text = " ".join(parts[4:]).strip()
+                score = min(round(((skill * 25 + avail * 60 + exp * 15) / 100), 1), 100)
+                if avail <= 10:
+                    tier = 4
+                elif score >= 75:
+                    tier = 1
+                elif score >= 50:
+                    tier = 2
+                elif score >= 25:
+                    tier = 3
+                else:
+                    tier = 4
+                reason_text = " ".join(parts[2:]).strip()
                 # Clean up [Skill XX] prefix from reasoning
                 reason_text = re.sub(r'^\[Skill \d+\]\s*', '', reason_text)
                 
@@ -2396,7 +2330,7 @@ EMPLOYEES:
                     "ai_tier": 4,
                     "ai_score": 0.0,
                     "ai_reason": "No LLM-based reasoning available.",
-                    "ai_criteria": {crit: 0.0 for crit in ["Skill", "TechGroup", "Availability", "Experience"]},
+                    "ai_criteria": {crit: 0.0 for crit in ["Skill", "Availability", "Experience"]},
                 })
 
         logger.info(f"🏁 LLM ranking completed for {len(final_ranked)} employees in {time.time() - start_time:.2f}s")
@@ -2640,7 +2574,7 @@ EMPLOYEES:
 
         profiles_text = "\n".join(
             f"{emp['employee_id']} | TIER {emp['ai_tier']} | SCORE {emp['ai_score']} | "
-            f"SKILL {emp['ai_criteria'].get('Skill', 0)} | TECH {emp['ai_criteria'].get('TechGroup', 0)} | "
+            f"SKILL {emp['ai_criteria'].get('Skill', 0)} | "
             f"AVAIL {emp['ai_criteria'].get('Availability', 0)} | EXP {emp['ai_criteria'].get('Experience', 0)}"
             for emp in pre_ranked
         )
@@ -2657,50 +2591,28 @@ IMPORTANT: DO NOT mention ANY deployment codes or customer names. Use only gener
 
 SCORE INTERPRETATION:
 - Skill (XX): Skill match quality (higher = better match)
-- TechGroup (XX): Technology domain alignment (higher = better alignment)  
 - Availability (XX): Current availability (higher = more available)
 - Experience (XX): Years of experience (higher = more experienced)
 - Tier (1-4): 1=best, 4=lowest priority
 
-REASONING GUIDELINES:
-Based on Skill score:
-- ≥80: "excellent/strong skill alignment"
-- 60-79: "good/relevant skills"  
-- <60: "limited/partial skill match"
+REASONING RULES
 
-Based on TechGroup score:
-- ≥80: "exact/perfect domain match"
-- 60-79: "related domain alignment"
-- <60: "domain mismatch"
+1–2 short sentences only.
+Must mention:
+- Why this employee considered or not considered
+- Skill relevance
+- Domain alignment or mismatch
+- Availability impact (primary factor)
+- If training, mention currently in training
+- If fully free, say fully available
 
-Based on Availability score:
-- ≥70: "high/complete availability"
-- 40-69: "moderate/partial availability" 
-- <40: "limited/heavy occupancy"
+No internal codes.
+No structured explanation.
+No extra commentary.
 
-Based on Experience score:
-- Consider if experience adds value or is limited
-
-ALWAYS USE GENERIC TERMS:
-- Instead of codes: "external client work", "internal project", "current assignments"
-- Instead of customers: "client projects", "company initiatives", "current engagements"
-
-NEVER MENTION:
-- FR, BK, SH, RD, BU, BIL, BUD, IB, CRD, IN (any deployment codes)
-- Customer names like "Extreme Networks", "Buspatrol", "NXP"
-- Technical jargon or abbreviations
-
-PRIORITY REASONING:
-- Do NOT explain skills.
-- Focus only on availability first, then tech group, then experience.
-- Use one short priority-driven statement.
-Keep it extremely short.
-No comparison words.
-No explanations.
-No restating scores.
 
 OUTPUT FORMAT (one line per employee):
-emp_id | TIER X | <2 sentences reasoning>
+emp_id | TIER X | <1-2 short sentences only>
 
 EMPLOYEES WITH EXISTING SCORES:
 {profiles_text}

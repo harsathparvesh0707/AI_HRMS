@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # --------------------
+    # Security
+    # --------------------
+    secret_key: str
+    algorithm: str = "HS256"
+    expire_time: int = 60
+
+    # --------------------
     # CORS
     # --------------------
     allowed_origins: List[str] = ["*"]

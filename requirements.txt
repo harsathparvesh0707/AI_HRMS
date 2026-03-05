@@ -169,6 +169,7 @@ redis==5.0.4
 resolvelib==1.2.1
 numpy==1.26.4
 google-genai==0.3.0
+python-jose==3.3.0
 # pip install --upgrade pip setuptools wheel
 # pip cache purge
 # pip install --upgrade --force-reinstall resolvelib

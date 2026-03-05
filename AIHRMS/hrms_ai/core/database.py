@@ -115,6 +115,14 @@ def init_database():
                 ADD COLUMN IF NOT EXISTS project_joined_date DATE,
                 ADD COLUMN IF NOT EXISTS project_committed_end_date DATE;
             """))
+
+            conn.execute(text("""CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(100) UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+            """))
             
             # Create performance indexes for ultra-fast text search
             logger.info("📈 Creating performance indexes...")

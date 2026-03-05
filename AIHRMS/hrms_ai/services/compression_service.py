@@ -253,8 +253,12 @@ class CompressionService:
             # FINAL INTERNAL PROJECT DETECTION
             is_internal = ("VVDN" in cust_norm) or ("INTERNAL" in cust_norm)
 
-            if is_internal and d_code != "FR":
-                d_code = "IN" 
+            if is_internal and (d_code != "FR" or d_code != "TR"):
+                cust_norm = "INTERNAL" 
+            elif d_code == "FR":
+                cust_norm = "FREEPOOL"
+            elif d_code == "TR":
+                cust_norm = "TRAINING"
 
             dep_codes.append(d_code)
             dep_occ_map[d_code] = dep_occ_map.get(d_code, 0) + occ

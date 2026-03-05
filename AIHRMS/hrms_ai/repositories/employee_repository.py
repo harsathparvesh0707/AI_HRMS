@@ -124,3 +124,21 @@ class EmployeeRepository(BaseRepository):
         query = "SELECT DISTINCT employee_department FROM employees WHERE employee_department IS NOT NULL AND employee_department <> ''"
         results = self.execute_query(query)
         return [row["employee_department"] for row in results if row.get("employee_department")]
+    
+    def get_all_designations(self) -> List[str]:
+        """Fetch all distinct designations from employee table."""
+        query = """
+        SELECT DISTINCT
+            LOWER(
+                TRIM(
+                    regexp_replace(designation, '\s*\(.*?\)', '', 'g')
+                )
+            ) AS cleaned_designation
+        FROM employees
+        WHERE designation IS NOT NULL
+        AND designation <> ''
+        ORDER BY cleaned_designation;
+        """
+
+        results = self.execute_query(query)
+        return [row.get("cleaned_designation") for row in results if row.get("cleaned_designation")]
