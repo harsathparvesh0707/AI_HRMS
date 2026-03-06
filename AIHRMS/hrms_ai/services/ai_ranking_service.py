@@ -2103,6 +2103,7 @@ PRIORITY REASONING:
 
 Constraints:
 - No hallucinated skills, customers, or roles.
+- NEVER output raw employee id or details can be use deployment
 - NEVER output raw internal codes like "FR", "BK", "SH", "RD", "BU", "BIL", "CRD", "IN".
 - NEVER output raw DEP_DETAIL strings or customer tokens like "EXTREMENETWORKS" or "VVDNINTERNALPROJECT".
 
@@ -2120,7 +2121,7 @@ Each entry follows the format:
 CODE:OCCUPANCY:CUSTOMER_TOKEN
 
 Examples:
-IN:10:VVDNINTERNAL;BUD:90:CUSTOMER
+IN:10:INTERNAL;BUD:90:CUSTOMER
 
 
 SCORING:
@@ -2133,31 +2134,31 @@ AVAILABILITY (STRICT IMPORTANT)
 1. For each deployment entry:
    - Multiply occupancy by weight.
    - Round result immediately to nearest integer.
+        DEPOLYMENT → OCCUPANCY
+        FR  → OCCUPANCY
+        TR  → OCCUPANCY × 0.5
+        RD  → OCCUPANCY × 0.5
+        IB  → OCCUPANCY × 0.33
+        SH  → OCCUPANCY × 0.33
+        BK  → OCCUPANCY × 0.25
+        BU  → OCCUPANCY × 0.1
+        BIL → 0
+
+        ABSOLUTE RULE:
+        1. FR:100:INTERNAL
+        → Availability = 100
+        2. FR:30:INTERNAL;BIL:50:<anything>;RD:20:INTERNAL
+        → Availability = 30 + 0 + 10 = 40
+        3. BU:50:<anything>;IB:30:INTERNAL;IB:20:INTERNAL
+        → Availability = 5 + 9.9 + 6.6 = 22
 2. Sum rounded values.
-3. Apply experience bonus if >8 years.
-4. Cap final result at 100.
-5. Apply BIL override at the very end.
+3. Cap final result at 100.
+4. Apply BIL override at the very end.
 
 Never change this order.
 Never skip rounding step.
 Never interpret internal vs external beyond the mapping table.
 
-FR  → OCCUPANCY
-TR  → OCCUPANCY × 0.5
-RD  → OCCUPANCY × 0.5
-IB  → OCCUPANCY × 0.33
-SH  → OCCUPANCY × 0.33
-BK  → OCCUPANCY × 0.25
-BU  → OCCUPANCY × 0.1
-BIL → 0
-
-ABSOLUTE RULE:
-If DEP_DETAIL is exactly:
-FR:100:INTERNAL
-and nothing else
-→ Availability = 100
-FR:30:INTERNAL;BIL:50:<anything>;RD:20:INTERNAL
-→ Availability = 30 + 0 + 10 = 40
 
 MANDATORY OVERRIDES:
 If any single BIL occupancy ≥ 70 → Availability must be < 20.
@@ -2211,6 +2212,7 @@ SCORING EXAMPLES FOR REFERENCE:
 OUTPUT FORMAT (STRICT, ONE LINE PER EMPLOYEE):
 emp_id | [Skill XX, Availability XX, Experience XX] | <exactly 2 concise sentences HR reasoning>
 
+MUST Follow Output Format
 Do NOT add any extra lines or commentary.
 Do NOT output scores with decimal points (use whole numbers).
 Do NOT deviate from the scoring formulas above.

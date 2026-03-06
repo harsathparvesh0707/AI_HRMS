@@ -2685,6 +2685,8 @@ class HybridSearchEngine:
             - ranking: one of [true, false] only choose true if the query specify to rank
             - skill_context_mode: "OR" | "AND"
 
+            If the query mentions Designer use → context = ["design"] keep remaining as you choose
+
             If the query mentions a department using a short name or keyword 
             (e.g., "cloud", "vision", "acc"), map it to the most relevant official department name above.
             If department is not explicitly mentioned in the query text, NEVER set the department field.
