@@ -1539,6 +1539,16 @@ class AISearchService:
                     "processing_time": 0
                 }
             logger.info(parsed_query)
+            is_effectively_empty = self._is_effectively_empty(parsed_query)
+            if is_effectively_empty:
+                return {
+                    "action": "search_only_results",
+                    "response": "No results Found",
+                    "data": [],
+                    "total_results": 0,
+                    "parsed_query": {},
+                    "processing_time": 0
+                }
             if parsed_query.get("ranking") == False:
                 has_only_name = (
                     parsed_query.get("employee_name")
@@ -2017,5 +2027,26 @@ class AISearchService:
             return json.loads(data) if data else None
         except Exception as e:
             logger.error(f"Redis cache failed: {e}")
+    
+    def _is_effectively_empty(self, parsed_query: Dict[str, Any]) -> bool:
+        ignore_keys = {"ranking", "skill_context_mode", "project_search"}
+        for k, v in parsed_query.items():
+            if k in ignore_keys:
+                continue
+            # None → empty
+            if v is None:
+                continue
+            # Empty list → empty
+            if isinstance(v, list) and len(v) == 0:
+                continue
+            # Empty string → empty
+            if isinstance(v, str) and v.strip() == "":
+                continue
+            # False boolean → ignore
+            if isinstance(v, bool) and v is False:
+                continue
+            # Anything else means a real filter exists
+            return False
 
+        return True
     

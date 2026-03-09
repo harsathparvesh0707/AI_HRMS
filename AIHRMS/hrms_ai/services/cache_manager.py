@@ -6,7 +6,7 @@ import yaml
 import time
 from typing import Dict, Any, Optional, Union
 from abc import ABC, abstractmethod
-import os
+import os, fnmatch
 from ..config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -20,6 +20,10 @@ class CacheInterface(ABC):
     
     @abstractmethod
     async def set(self, key: str, value: Any, ttl: int = None) -> bool:
+        pass
+
+    @abstractmethod
+    async def keys(self, keys: str) -> Optional[Any]:
         pass
     
     @abstractmethod
@@ -80,6 +84,13 @@ class MemoryCache(CacheInterface):
         self.write_times[key] = current_time
         self.access_times[key] = current_time
         return True
+    
+    async def keys(self, keys: str) -> Optional[Any]:
+        try:
+            matched_keys = [k for k in self.cache.keys() if fnmatch.fnmatch(k, keys)]
+            return matched_keys
+        except Exception:
+            return []
     
     async def delete(self, key: str) -> bool:
         if key in self.cache:
@@ -361,6 +372,12 @@ class CacheManager:
             ttl = self.config["cache"]["compression"]["ttl"]
         
         return await self.cache.set(key, value, ttl)
+    
+    async def keys(self, keys: str) -> Optional[Any]:
+        """Get Keys from cache"""
+        if not self.cache:
+            return None
+        return await self.cache.keys(keys)
     
     async def delete(self, key: str) -> bool:
         """Delete value from cache"""

@@ -311,8 +311,11 @@ class EmbeddingCacheService:
             embedding_keys = self.redis_client.keys("query_embedding:*")
             # Clear parsed queries
             parse_keys = self.redis_client.keys("parsed_query:*")
+            # Clear Dashboard datas
+            dashboard_keys = self.redis_client.keys("dashboard:*")
             
-            total_keys = embedding_keys + parse_keys
+            total_keys = embedding_keys + parse_keys + dashboard_keys
+            logger.info(total_keys)
             if total_keys:
                 self.redis_client.delete(*total_keys)
                 logger.info(f"🗑️ Cleared {len(total_keys)} query cache entries")
@@ -321,7 +324,8 @@ class EmbeddingCacheService:
                 "status": "success",
                 "message": f"Cleared {len(total_keys)} query cache entries",
                 "embedding_keys_cleared": len(embedding_keys),
-                "parse_keys_cleared": len(parse_keys)
+                "parse_keys_cleared": len(parse_keys),
+                "dashboard_keys_cleared": len(dashboard_keys)
             }
             
         except Exception as e:

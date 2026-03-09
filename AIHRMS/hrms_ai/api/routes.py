@@ -18,6 +18,7 @@ from ..services.redis_broker import RedisMessageBroker
 from ..services.available_employees_service import AvailableEmployeesService
 from ..services.low_occupancy_service import LowOccupancyService
 from ..services.ai_analytics import AiAnalytics
+from ..services.cache_manager import cache_manager
 from ..auth.security import Authentication
 from ..auth.auth import Token
 from fastapi.security import OAuth2PasswordBearer
@@ -169,7 +170,9 @@ async def upload_hrms_data(
     """File Upload Endpoint"""
     # Process file upload
     result = await upload_service.process_file_upload(file, description)
-    
+    keys = await cache_manager.keys("dashboard:*")
+    for key in keys:
+        await cache_manager.delete(key)
     # Trigger cache rebuild in background for search optimization
     # background_tasks.add_task(_post_upload_cache_rebuild)
     rebuild_embedding_cache.delay()
@@ -468,6 +471,10 @@ async def add_employee_projects(employee_id: str, projects_data: ProjectsUpdateR
         # Invalidate and rebuild caches for this employee
         from ..services.cache_invalidation_service import cache_invalidation_service
         await cache_invalidation_service.invalidate_and_rebuild_employee(full_employee_id)
+
+        keys = await cache_manager.keys("dashboard:*")
+        for key in keys:
+            await cache_manager.delete(key)
         
         return result
     except Exception as e:
@@ -495,6 +502,10 @@ async def delete_all_employee_projects(employee_id: str, current_user: dict = De
         # Invalidate and rebuild caches for this employee
         from ..services.cache_invalidation_service import cache_invalidation_service
         await cache_invalidation_service.invalidate_and_rebuild_employee(full_employee_id)
+
+        keys = await cache_manager.keys("dashboard:*")
+        for key in keys:
+            await cache_manager.delete(key)
         
         return result
     except Exception as e:
@@ -512,6 +523,9 @@ async def delete_employee_project(employee_id: str, project_id: str, current_use
         from ..services.cache_invalidation_service import cache_invalidation_service
         await cache_invalidation_service.invalidate_and_rebuild_employee(full_employee_id)
         
+        keys = await cache_manager.keys("dashboard:*")
+        for key in keys:
+            await cache_manager.delete(key)
         
         return result
     except Exception as e:
@@ -528,6 +542,10 @@ async def update_employee_profile(employee_id: str, profile_data: ProfileUpdateR
         # Invalidate and rebuild caches for this employee
         from ..services.cache_invalidation_service import cache_invalidation_service
         await cache_invalidation_service.invalidate_and_rebuild_employee(full_employee_id)
+
+        keys = await cache_manager.keys("dashboard:*")
+        for key in keys:
+            await cache_manager.delete(key)
         
         return result
     except Exception as e:
@@ -538,7 +556,12 @@ async def update_employee_profile(employee_id: str, profile_data: ProfileUpdateR
 async def project_distribution(current_user: dict = Depends(get_current_user)):
     """API for total_project count and top-most aligned projects"""
     try:
-        result = await dashboard_service.get_project_distribution(top_n=4)
+        cache_key = f"dashborad:project_distribution"
+        result = await cache_manager.get(cache_key)
+        if not result:
+            logger.info(f"Cache Not Found for key: {cache_key}")
+            result = await dashboard_service.get_project_distribution(top_n=4)
+            await cache_manager.set(cache_key, result, 300)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -547,7 +570,12 @@ async def project_distribution(current_user: dict = Depends(get_current_user)):
 async def department_distribution(current_user: dict = Depends(get_current_user)):
     """Departments and Employee Counts"""
     try:
-        result = await dashboard_service.get_department_distribution()
+        cache_key = f"dashboard:department_counts"
+        result = await cache_manager.get(cache_key)
+        if not result:
+            logger.info(f"Cache Not Found for key: {cache_key}")
+            result = await dashboard_service.get_department_distribution()
+            await cache_manager.set(cache_key, result, 300)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -557,7 +585,12 @@ async def department_distribution(current_user: dict = Depends(get_current_user)
 async def get_dashboard_count(current_user: dict = Depends(get_current_user)):
     """Freepool, Employee and Projects Count"""
     try:
-        result = await dashboard_service.get_dashboard_count_details()
+        cache_key = f"dashboard:count_data"
+        result = await cache_manager.get(cache_key)
+        if not result:
+            logger.info(f"Cache Not Found for key: {cache_key}")
+            result = await dashboard_service.get_dashboard_count_details()
+            await cache_manager.set(cache_key, result, 300)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -601,7 +634,12 @@ async def find_low_occupancy_employees(occupancy_threshold: int = Query(50, ge=0
 async def get_employee_directory(current_user: dict = Depends(get_current_user)):
     """Employee Directory Data"""
     try:
-        result = await dashboard_service.get_employees_directory()
+        cache_key = f"dashboard:employee_directory"
+        result = await cache_manager.get(cache_key)
+        if not result:
+            logger.info(f"Cache Not Found for key: {cache_key}")
+            result = await dashboard_service.get_employees_directory()
+            await cache_manager.set(cache_key, result, 300)
         return result
     except Exception as e:
         logger.error("Error while fetching employee directory")
