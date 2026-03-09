@@ -610,8 +610,13 @@ async def get_employees_deployment_wise(deployment: DeploymentFilter = Query(...
 async def find_available_employees(month_threshold: int = Query(3, ge=0), current_user: dict = Depends(get_current_user)):
     """Find employees who are currently free or whose projects are ending soon"""
     try:
-        logger.info(f"🔍 Finding available employees with {month_threshold} months threshold")
-        result = available_employees_service.find_available_employees(months_threshold=month_threshold)
+        cache_key = f"dashboard:available_employees_{month_threshold}"
+        result = await cache_manager.get(cache_key)
+        if not result:
+            logger.info(f"Cache Not Found for key: {cache_key}")
+            logger.info(f"🔍 Finding available employees with {month_threshold} months threshold")
+            result = available_employees_service.find_available_employees(months_threshold=month_threshold)
+            await cache_manager.set(cache_key, result, 300)
         return result
         
     except Exception as e:
