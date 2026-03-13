@@ -1914,8 +1914,7 @@ EMPLOYEES:
             total_external_occupancy = sum(e["occupancy"] for e in external_entries)
             
             # Get query skills for skill matching
-            query_skills = [s.lower() for s in parsed_query.get("semantic_skills", [])] or \
-                        [s.lower() for s in parsed_query.get("skills", [])]
+            query_skills = [s.lower() for s in parsed_query.get("skills", [])]
             
             # ============================================
             # CHECK IF EMPLOYEE IS EXTERNAL-HEAVY
@@ -1980,48 +1979,119 @@ EMPLOYEES:
                 # ============================================
                 # CALCULATE CRITERIA SCORES (for display only)
                 # ============================================
-                
                 # 1. SKILL SCORE
-                if perfect_skill_match:
-                    skill_score = 90.0
-                elif good_skill_match:
-                    skill_score = 70.0
+                TECH_GROUPS = {
+                    "frontend": ["angular", "react", "reactjs", "vue", "vuejs", "next", "nextjs", "html", "css", "javascript"],
+                    "backend": ["python", "java", "golang", "node", "nodejs", "spring", "django", "fastapi"],
+                    "fullstack": ["fullstack", "mern", "mean"],
+                    "android": ["android", "flutter", "mobile", "kotlin", "dart"],
+                    "ops": ["aws", "ci/cd", "cicd", "devops", "docker", "kubernetes", "azure", "gcp", "google cloud"]
+                }
+
+
+                def get_skill_groups(skill: str):
+                    skill = skill.lower()
+                    groups = set()
+
+                    for group, skills in TECH_GROUPS.items():
+                        for s in skills:
+                            if s in skill:
+                                groups.add(group)
+
+                    return groups
+
+
+                skills_text_norm = skills_text.lower()
+                tech_group_norm = tech_group.lower()
+
+                query_groups = set()
+                for qs in query_skills:
+                    query_groups.update(get_skill_groups(qs))
+
+
+                skill_exists = False
+                specialization_match = False
+
+                for qs in query_skills:
+                    qs_norm = qs.lower()
+                    if qs_norm in tech_group_norm:
+                        specialization_match = True
+                        break
+                    if qs_norm in skills_text_norm:
+                        skill_exists = True
+
+
+                # ============================================
+                # FINAL SCORING
+                # ============================================
+
+                # 1️⃣ specialization
+                if specialization_match:
+                    skill_score = 95.0
+
+                # 2️⃣ same tech group domain
+                elif any(group in tech_group_norm for group in query_groups):
+                    skill_score = 80.0
+
+                # 3️⃣ fullstack bridge
+                elif "fullstack" in tech_group_norm and query_groups.intersection({"frontend","backend"}):
+                    skill_score = 80.0
+
+                # 4️⃣ skill exists but wrong domain
+                elif skill_exists:
+                    skill_score = 40.0
+
                 else:
-                    skill_score = 50.0
-                
-                # 2. TECH GROUP SCORE
-                ctx = parsed_query.get("context", "")
-                if isinstance(ctx, list):
-                    ctx = " ".join([str(x).lower() for x in ctx])
-                else:
-                    ctx = str(ctx).lower()
-                
-                tech_group_lower = str(tech_group).lower()
-                tech_score = 40.0  # Default mismatch
-                
-                # Simple tech group matching for external-heavy
-                if any(term in tech_group_lower for term in ctx.split()):
-                    tech_score = 95.0
-                elif ("backend" in tech_group_lower or "back end" in tech_group_lower) and "backend" in ctx:
-                    tech_score = 80.0
-                elif "full stack" in tech_group_lower and ("full stack" in ctx or "backend" in ctx):
-                    tech_score = 80.0
+                    skill_score = 30.0
                 
                 # 3. EXPERIENCE SCORE
                 exp_score = min(100, int(10 + exp_years * 9))
                 
                 # 4. AVAILABILITY SCORE (LOW for external-heavy)
-                if perfect_skill_match:
-                    availability_score = 30.0  # External-heavy with perfect skills
-                elif good_skill_match:
-                    availability_score = 20.0  # External-heavy with good skills
-                elif skill_score >= 50:
-                    availability_score = 10.0  # External-heavy with basic skills
-                else:
-                    availability_score = 5.0   # External-heavy with no skills
-                
-                # Senior multitasking bonus
-                if is_senior and perfect_skill_match and tech_score >= 90:
+                WEIGHTS = {
+                    "FR": 1.0,
+                    "TR": 0.5,
+                    "RD": 0.5,
+                    "IB": 0.33,
+                    "SH": 0.33,
+                    "BK": 0.25,
+                    "BU": 0.1,
+                    "BIL": 0
+                }
+
+                def calculate_availability(deployment_string: str) -> int:
+                    entries = deployment_string.split(";")
+                    total = 0
+                    bil_present = False
+
+                    for entry in entries:
+                        parts = entry.split(":")
+                        if len(parts) < 2:
+                            continue
+
+                        dep = parts[0]
+                        occupancy = float(parts[1])
+
+                        if dep == "BIL":
+                            bil_present = True
+                            continue
+
+                        weight = WEIGHTS.get(dep, 0)
+                        value = occupancy * weight
+                        total += round(value)
+
+                    total = min(total, 100)
+
+                    if bil_present:
+                        total += 0
+
+                    return total
+
+                availability_score = calculate_availability(dep_detail)
+
+                # senior multitasking boost
+                if is_senior and skill_score >= 90:
+                    availability_score = min(100, availability_score + 10)
                     availability_score = min(100.0, availability_score + 30.0)
                 
                 # Add to pre-ranked list
@@ -2090,6 +2160,7 @@ You are an expert HR evaluator performing PURE reasoning-style ranking using a P
 You must produce for each employee:
 1) A short HR reasoning
 2) A set of numeric scores: Skill XX, Availability XX, Experience XX, 
+3) MUST follow the OUTPUT format
 
 PRIORITY REASONING:
 - 1–2 short sentences only.

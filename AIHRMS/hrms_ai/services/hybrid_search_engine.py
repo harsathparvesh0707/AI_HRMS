@@ -2672,7 +2672,7 @@ class HybridSearchEngine:
             - context: [list of domain/technologies] ONLY include if the query explicitly mentioned any specific skill or domain.
             - experience_min: integer years
             - experience_max: integer years
-            - deployment: one of [free, billable, support, budgeted, trainee, internal budgeted]
+            - deployment: one of [free, billable, support, budgeted, trainee, internal budgeted, long leave, planned]
             - location: city or work location
             - department: department name (ONLY if explicitly mentioned in the query)
             - designation: one of {designation} ONLY include if the query explicitly mention any specific value (sr tech lead, junior engineer)
@@ -3106,6 +3106,7 @@ class HybridSearchEngine:
             FROM employees e
             LEFT JOIN employee_projects ep ON e.employee_id = ep.employee_id
             WHERE TRUE
+            AND (ep.deployment IS NULL OR LOWER(ep.deployment) NOT LIKE '%long leave%')
             """
             
             if not employee_name:
