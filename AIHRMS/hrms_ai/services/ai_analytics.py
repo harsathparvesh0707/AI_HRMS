@@ -4,6 +4,8 @@ from ..services.hybrid_search_engine import HybridSearchEngine
 from ..core.database import get_db_session
 from sqlalchemy import text
 import re, json, logging
+from datetime import date, datetime
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +17,7 @@ class AiAnalytics:
 
     SCHEMA = """
         Database Schema:
-
+        
         Table: employees
         - employee_id (varchar, primary key)
         - display_name (varchar)
@@ -128,6 +130,146 @@ class AiAnalytics:
         #     query += " LIMIT 100"
 
         return query
+    
+
+    def _is_numeric(self, value):
+        return isinstance(value, (int, float, Decimal)) and not isinstance(value, bool)
+
+    def _is_date(self, value):
+        return isinstance(value, (date, datetime))
+
+    def _validate_chart_structure(self, chart_type, x_axis, y_axis, data):
+        if not isinstance(data, list) or len(data) == 0:
+            raise ValueError("Empty dataset")
+
+        first_row = data[0]
+        columns = list(first_row.keys())
+
+        # -------------------------
+        # CARD
+        # -------------------------
+        if chart_type == "card":
+            if len(data) != 1:
+                raise ValueError("Card chart must return exactly one row")
+            if len(first_row) != 1:
+                raise ValueError("Card chart must return exactly one column")
+            value = list(first_row.values())[0]
+            if not self._is_numeric(value):
+                raise ValueError("Card value must be numeric")
+
+        # -------------------------
+        # LINE
+        # -------------------------
+        elif chart_type == "line":
+            if x_axis not in columns or y_axis not in columns:
+                raise ValueError("Line chart missing required columns")
+
+            for row in data:
+                if not self._is_date(row[x_axis]):
+                    raise ValueError("Line chart xAxis must be date/datetime")
+                if not self._is_numeric(row[y_axis]):
+                    raise ValueError("Line chart yAxis must be numeric")
+
+        # -------------------------
+        # BAR
+        # -------------------------
+        elif chart_type == "bar":
+            if x_axis not in columns or y_axis not in columns:
+                raise ValueError("Bar chart missing required columns")
+
+            for row in data:
+                if not isinstance(row[x_axis], str):
+                    raise ValueError("Bar xAxis must be categorical (string)")
+                if not self._is_numeric(row[y_axis]):
+                    raise ValueError("Bar yAxis must be numeric")
+
+        # -------------------------
+        # MULTI BAR
+        # -------------------------
+        elif chart_type == "multi_bar":
+            if x_axis not in columns:
+                raise ValueError("Multi bar missing xAxis")
+
+            metric_columns = [c for c in columns if c != x_axis]
+
+            if len(metric_columns) < 2:
+                raise ValueError("Multi bar must have at least 2 numeric metrics")
+
+            for row in data:
+                if not isinstance(row[x_axis], str):
+                    raise ValueError("Multi bar xAxis must be string")
+                for m in metric_columns:
+                    if not self._is_numeric(row[m]):
+                        raise ValueError("Multi bar metrics must be numeric")
+
+        # -------------------------
+        # GROUPED BAR
+        # -------------------------
+        elif chart_type == "grouped_bar":
+            if x_axis not in columns or y_axis not in columns:
+                raise ValueError("Grouped bar missing required columns")
+
+            group_columns = [c for c in columns if c not in (x_axis, y_axis)]
+            if len(group_columns) != 1:
+                raise ValueError("Grouped bar must have exactly two categorical columns and one metric")
+
+            group_by = group_columns[0]
+
+            for row in data:
+                if not isinstance(row[x_axis], str):
+                    raise ValueError("Grouped bar xAxis must be string")
+                if not isinstance(row[group_by], str):
+                    raise ValueError("Grouped bar groupBy must be string")
+                if not self._is_numeric(row[y_axis]):
+                    raise ValueError("Grouped bar yAxis must be numeric")
+
+        # -------------------------
+        # PIE
+        # -------------------------
+        elif chart_type == "pie":
+            if x_axis not in columns or y_axis not in columns:
+                raise ValueError("Pie chart missing required columns")
+
+            for row in data:
+                if not isinstance(row[x_axis], str):
+                    raise ValueError("Pie xAxis must be string")
+                if not self._is_numeric(row[y_axis]):
+                    raise ValueError("Pie yAxis must be numeric")
+
+        # -------------------------
+        # SCATTER
+        # -------------------------
+        elif chart_type == "scatter":
+            if x_axis not in columns or y_axis not in columns:
+                raise ValueError("Scatter chart missing required columns")
+
+            for row in data:
+                if not self._is_numeric(row[x_axis]):
+                    raise ValueError("Scatter xAxis must be numeric")
+                if not self._is_numeric(row[y_axis]):
+                    raise ValueError("Scatter yAxis must be numeric")
+
+        # -------------------------
+        # RADAR
+        # -------------------------
+        elif chart_type == "radar":
+            if x_axis not in columns or y_axis not in columns:
+                raise ValueError("Radar chart missing required columns")
+
+            for row in data:
+                if not isinstance(row[x_axis], str):
+                    raise ValueError("Radar xAxis must be string")
+                if not self._is_numeric(row[y_axis]):
+                    raise ValueError("Radar yAxis must be numeric")
+
+        # -------------------------
+        # TABLE
+        # -------------------------
+        elif chart_type == "table":
+            return  # no structural validation
+
+        else:
+            raise ValueError(f"Unsupported chart type: {chart_type}")
 
     def _build_system_prompt(self, user_chart_type: str) -> str:
         preferred_chart = (
@@ -183,7 +325,7 @@ class AiAnalytics:
             - One numeric aggregate
             - Used strictly for time series.
 
-            pie:
+            pie / doughnut:
             - Exactly one categorical column
             - Exactly one numeric aggregate
             - Used for proportion/share
@@ -239,7 +381,7 @@ class AiAnalytics:
             5. One categorical + one metric (filtered to <= 5 entities) → radar
             6. One category + multiple metrics → multi_bar
             7. Two categories + one metric → grouped_bar
-            8. Proportion/share → pie
+            8. Proportion/share → pie or doughnut
             9. Otherwise → table
 
             Output Rules:
@@ -253,7 +395,7 @@ class AiAnalytics:
 
             {{
             "sql": "...",
-            "chartType": "bar|grouped_bar|multi_bar|scatter|line|pie|table|card",
+            "chartType": "bar|grouped_bar|multi_bar|doughnut|scatter|line|pie|table|card",
             "xAxis": "...",
             "yAxis": "...",
             "title": "..."
@@ -314,7 +456,17 @@ class AiAnalytics:
             # 3️⃣ Execute
             data = await self.execute_query(safe_sql)
 
-            logger.info(f"Returned data: {len(data)}")
+            logger.info(f"Returned data length: {len(data)}")
+
+            # 4️⃣ Validate result set
+            if not data or len(data) == 0:
+                logger.warning("AI query returned empty dataset.")
+                return {
+                    "status": "error",
+                    "message": "No data found for the given query. Please refine or change your prompt.",
+                }
+
+            # self._validate_chart_structure(chart_type, x_axis, y_axis, data)
 
             return {
                 "chartType": chart_type,
@@ -323,6 +475,18 @@ class AiAnalytics:
                 "title": title,
                 "data": data
             }
+        # except ValueError as ve:
+        #     logger.warning(f"Validation error in analytics: {ve}")
+        #     return {
+        #         "status": "error",
+        #         "message": str(ve),
+        #         "code": "VALIDATION_ERROR"
+        #     }
+
         except Exception as e:
-            logger.error(str(e))
-            raise
+            logger.exception("Unexpected analytics error")
+            return {
+                "status": "error",
+                "message": "Something went wrong while generating analytics. Please try again.",
+                "code": "INTERNAL_ERROR"
+            }
