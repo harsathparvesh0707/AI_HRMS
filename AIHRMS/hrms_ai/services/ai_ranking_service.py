@@ -2207,6 +2207,7 @@ AVAILABILITY (STRICT IMPORTANT)
    - Round result immediately to nearest integer.
         DEPOLYMENT → OCCUPANCY
         FR  → OCCUPANCY
+        PL  → OCCUPANCY × 0.8
         TR  → OCCUPANCY × 0.5
         RD  → OCCUPANCY × 0.5
         IB  → OCCUPANCY × 0.33
@@ -2222,6 +2223,8 @@ AVAILABILITY (STRICT IMPORTANT)
         → Availability = 30 + 0 + 10 = 40
         3. BU:50:<anything>;IB:30:INTERNAL;IB:20:INTERNAL
         → Availability = 5 + 9.9 + 6.6 = 22
+        4. PL:100:<anything>
+        → Availability = 80
 2. Sum rounded values.
 3. Cap final result at 100.
 4. Apply BIL override at the very end.
@@ -2349,7 +2352,7 @@ EMPLOYEES:
                     avail = ai_criteria["Availability"]
                     exp = ai_criteria["Experience"]
                 
-                score = min(round(((skill * 25 + avail * 60 + exp * 15) / 100), 1), 100)
+                score = min(round(((skill * 25 + avail * 60 + exp * 15) / 100)), 100)
                 if avail <= 10:
                     tier = 4
                 elif score >= 75:

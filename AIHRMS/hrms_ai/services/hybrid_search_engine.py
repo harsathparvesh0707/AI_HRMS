@@ -2687,8 +2687,13 @@ class HybridSearchEngine:
 
             If the query mentions Designer use → context = ["design"] keep remaining as you choose
 
+            If the query mentions "mobile developer", "mobile app developer" use → context = ["android", "ios"], skills = ["android", "ios"] skill_context_mode = OR keep remaining as you chosse
+
             If the query mentions a department using a short name or keyword 
-            (e.g., "cloud", "vision", "acc"), map it to the most relevant official department name above.
+            ("cloud", "vision", "acc OR 5g"), map it to the most relevant official department name above.
+            cloud → "Cloud and Mobile Apps"
+            vision → "Vision and Automotive"
+            acc or 5g → "Adaptive Compute and Comms"
             If department is not explicitly mentioned in the query text, NEVER set the department field.
             Do not infer department from skill, tech group, or domain.
 
@@ -2781,7 +2786,7 @@ class HybridSearchEngine:
             Set "ranking": true when:
             - The query implies quality comparison or prioritization
             - Words like "skilled in", "strong in", "expert in", "best", 
-            "good at", "proficient", "experienced in"
+            "good at", "proficient", "experienced in", "available"
             - When it's for project requirement or hiring decision
             - When matching strength matters
 

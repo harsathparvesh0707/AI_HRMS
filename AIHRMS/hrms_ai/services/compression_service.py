@@ -117,6 +117,8 @@ def _normalize_deployment(raw_dep: str) -> Tuple[str, str]:
         return "SH", "Shadow / Learning"
     if re.search(r"\brand|r d\b|research\b", dep):
         return "RD", "R&D / Internal"
+    if re.search(r"\bplanned\b", dep):
+        return "PL", "Planned"
     if re.search(r"\bbudget\b|planned|bu\b", dep):
         return "BU", "Budgeted / Planned"
     if re.search(r"\bmarket|business|sales\b", dep):
