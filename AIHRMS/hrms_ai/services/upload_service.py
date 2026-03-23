@@ -55,6 +55,7 @@ class DatabaseManager:
         try:
             with get_db_session() as session:
                 session.execute(text("DELETE FROM employee_projects"))
+                session.execute(text("DELETE FROM projects"))
                 session.execute(text("DELETE FROM employees"))
                 session.commit()
                 logger.info("Cleared existing data")
@@ -100,42 +101,26 @@ class DatabaseManager:
         inserted = 0
         try:
             with get_db_session() as session:
-                sql = """
-                INSERT INTO employee_projects (
-                    employee_id, project_name, customer, project_department, 
-                    project_industry, project_status, occupancy,
-                    project_extended_end_date, project_committed_end_date,
-                    start_date, end_date, role, deployment, project_joined_date
-                )
-                VALUES (:employee_id, :project_name, :customer, :project_department, 
-                        :project_industry, :project_status, :occupancy,
-                        :project_extended_end_date, :project_committed_end_date,
-                        :start_date, :end_date, :role, :deployment, :project_joined_date)
-                """
-                
                 for project in projects_data:
                     try:
                         # Use savepoint for individual record error handling
                         savepoint = session.begin_nested()
                         
-                        clean_project = {
-                            'employee_id': project.get('employee_id', ''),
-                            'project_name': project.get('project_name', ''),
-                            'customer': project.get('customer', ''),
-                            'project_department': project.get('project_department', ''),
-                            'project_industry': project.get('project_industry', ''),
-                            'project_status': project.get('project_status', 'active'),
-                            'occupancy': project.get('occupancy', 0),
-                            'project_extended_end_date': project.get('project_extended_end_date'),
-                            'project_committed_end_date': project.get('project_committed_end_date'),
-                            'start_date': project.get('start_date', ''),
-                            'end_date': project.get('end_date'),
-                            'role': project.get('role', ''),
-                            'deployment': project.get('deployment', ''),
-                            'project_joined_date': project.get('project_joined_date', '')
-                        }
-                        
-                        session.execute(text(sql), clean_project)
+                        session.execute(text("""
+                            INSERT INTO projects (
+                                project_name, customer, project_department,
+                                project_industry, project_status, project_category,
+                                delivery_owner_emp_id, delivery_owner, pm,
+                                project_committed_end_date, project_extended_end_date
+                            )
+                            VALUES (
+                                :project_name, :customer, :project_department,
+                                :project_industry, :project_status, :project_category,
+                                :delivery_owner_emp_id, :delivery_owner, :pm,
+                                :project_committed_end_date, :project_extended_end_date
+                            )
+                        """), project)
+
                         savepoint.commit()
                         inserted += 1
                         
@@ -151,6 +136,37 @@ class DatabaseManager:
             raise
         
         return inserted
+    
+    def insert_employee_project(self, employee_projects_data: List[Dict]) -> int:
+        inserted = 0
+        with get_db_session() as session:
+            for row in employee_projects_data:
+                try:
+                    savepoint = session.begin_nested()
+                    session.execute(text("""
+                        INSERT INTO employee_projects (
+                            employee_id, project_name, project_joined_date,
+                            role, deployment, occupancy,
+                            committed_relieving_date, extended_relieving_date,
+                            created_by_employee_id, created_by_display_name
+                        )
+                        VALUES (
+                            :employee_id, :project_name, :project_joined_date,
+                            :role, :deployment, :occupancy,
+                            :committed_relieving_date, :extended_relieving_date,
+                            :created_by_employee_id, :created_by_display_name
+                        )
+                    """), row)
+                    savepoint.commit()
+                    inserted += 1
+                    
+                except Exception as e:
+                    logger.error(f"Employee project insert error: {e}")
+                    continue
+            session.commit()
+            logger.info(f"Inserted {inserted} Employee Project Mapping Details")
+        return inserted
+
 
 class UploadService:
     """Main upload service"""
@@ -177,12 +193,13 @@ class UploadService:
                 raise HTTPException(status_code=400, detail="Empty file")
             
             df = self.processor.read_file(file_content, file.filename)
-            employees_data, projects_data = self._process_dataframe(df)
+            employees_data, projects_data, employees_project_data = self._process_dataframe(df)
             
             # Clear and insert data
             self.db_manager.clear_existing_data()
             db_employees = self.db_manager.insert_employees(employees_data)
             db_projects = self.db_manager.insert_projects(projects_data)
+            db_employees_projects_data = self.db_manager.insert_employee_project(employees_project_data)
             
             # # NEW: Generate compressed profiles after data insertion
             # await self.compression_service.rebuild_cache()
@@ -198,7 +215,7 @@ class UploadService:
                 status="success",
                 message=f"Successfully processed {file.filename}",
                 records_processed=len(df),
-                database_records=db_employees + db_projects,
+                database_records=db_employees + db_projects + db_employees_projects_data,
                 vector_documents=0,
                 file_metadata={
                     "rows": len(df),
@@ -214,20 +231,20 @@ class UploadService:
     def _process_dataframe(self, df: pd.DataFrame) -> tuple[List[Dict], List[Dict]]:
         """Process DataFrame into employees and projects data"""
         employees_data = {}
-        projects_data = []
+        projects_data = {}
+        employee_projects_data = []
         
         for _, row in df.iterrows():
             employee_id = str(row.get('employee_id', '')).strip()
             if not employee_id:
                 continue
             
-            # Process employee data (once per employee)
+            # Employee
             if employee_id not in employees_data:
                 employees_data[employee_id] = {
                     'employee_id': employee_id,
                     'display_name': str(row.get('display_name', '')).strip(),
                     'employee_department': str(row.get('employee_department', '')).strip(),
-                    'pm': str(row.get('pm', '')).strip(),
                     'total_exp': str(row.get('total_exp', '')).strip(),
                     'vvdn_exp': str(row.get('vvdn_exp', '')).strip(),
                     'designation': str(row.get('designation', '')).strip(),
@@ -236,32 +253,45 @@ class UploadService:
                     'skill_set': str(row.get('skill_set', '')).strip(),
                     'rm_id': str(row.get('rm_id', '')).strip(),
                     'rm_name': str(row.get('rm_name', '')).strip(),
-                    'joined_date': self._parse_date(row.get('employee_joined_date')),
-                    'committed_relieving_date': self._parse_date(row.get('committed_relieving_date')),
-                    'extended_relieving_date': self._parse_date(row.get('extended_relieving_date'))
+                    'employee_ou_type': str(row.get('employee_ou_type')).strip(),
+                    'sub_department': str(row.get('sub_department')).strip()
                 }
             
-            # Process project data
-            project_name = row.get('project')
-            if project_name and str(project_name).strip():
-                projects_data.append({
-                    'employee_id': employee_id,
-                    'project_name': str(project_name).strip(),
-                    'customer': str(row.get('customer', '')).strip(),
-                    'project_department': str(row.get('project_department', '')).strip(),
-                    'project_industry': str(row.get('project_industry', '')).strip(),
-                    'project_status': str(row.get('project_status', '')).strip(),
-                    'occupancy': self._safe_int_convert(row.get('occupancy', 0)),
-                    'start_date': self._parse_date(row.get('start_date')),
-                    'end_date': self._parse_date(row.get('end_date')),
-                    'role': str(row.get('role', '')).strip(),
-                    'deployment': str(row.get('deployment', '')).strip(),
-                    'project_joined_date': self._parse_date(row.get('joined_date')),
-                    'project_extended_end_date': self._parse_date(row.get('project_extended_end_date')),
-                    'project_committed_end_date': self._parse_date(row.get('project_committed_end_date'))
-                })
+            # Projects
+            project_name = str(row.get('project', '')).strip()
+            if project_name:
+                if project_name not in projects_data:
+                    projects_data[project_name] = {
+                        'project_name': project_name,
+                        'customer': str(row.get('customer', '')).strip(),
+                        'project_department': str(row.get('project_department', '')).strip(),
+                        'project_industry': str(row.get('project_industry', '')).strip(),
+                        'project_status': str(row.get('project_status', '')).strip(),
+                        'project_category': str(row.get('project_category', '')).strip(),
+                        'delivery_owner_emp_id': str(row.get('delivery_owner_emp_id', '')).strip(),
+                        'delivery_owner': str(row.get('delivery_owner', '')).strip(),
+                        'pm': str(row.get('pm', '')).strip(),
+                        'project_committed_end_date': self._parse_date(row.get('project_committed_end_date')),
+                        'project_extended_end_date': self._parse_date(row.get('project_extended_end_date'))
+                    }
+            
+            # Employee Projects
+            employee_projects_data.append({
+                'employee_id': employee_id,
+                'project_name': project_name,
+                'project_joined_date': self._parse_date(row.get('joined_date')),
+                'start_date': self._parse_date(row.get('start_date')),
+                'end_date': self._parse_date(row.get('end_date')),
+                'role': str(row.get('role', '')).strip(),
+                'deployment': str(row.get('deployment', '')).strip(),
+                'occupancy': self._safe_int_convert(row.get('occupancy', 0)),
+                'committed_relieving_date': self._parse_date(row.get('committed_relieving_date')),
+                'extended_relieving_date': self._parse_date(row.get('extended_relieving_date')),
+                'created_by_employee_id': employee_id,
+                'created_by_display_name': str(row.get('display_name', '')).strip()
+            })
         
-        return list(employees_data.values()), projects_data
+        return list(employees_data.values()), list(projects_data.values()), employee_projects_data
     
     def _safe_int_convert(self, value) -> int:
         """Safely convert value to integer"""
@@ -292,11 +322,25 @@ class UploadService:
                 
                 # Get all projects grouped by employee
                 projects_result = session.execute(text("""
-                    SELECT employee_id, project_name, customer, project_department, 
-                           project_industry, project_status, occupancy,
-                           start_date, end_date, role, deployment, project_joined_date, project_extended_end_date, project_committed_end_date
-                    FROM employee_projects 
-                    ORDER BY employee_id, created_at
+                SELECT 
+                    ep.employee_id,
+                    p.project_name,
+                    p.customer,
+                    p.project_department,
+                    p.project_industry,
+                    p.project_status,
+                    ep.occupancy,
+                    ep.role,
+                    ep.deployment,
+                    ep.project_joined_date,
+                    p.project_extended_end_date,
+                    p.project_committed_end_date,
+                    ep.start_date,
+                    ep.end_date
+                FROM employee_projects ep
+                LEFT JOIN projects p 
+                    ON ep.project_name = p.project_name
+                ORDER BY ep.employee_id, ep.created_at
                 """))
                 
                 # Group projects by employee_id
@@ -379,22 +423,13 @@ class UploadService:
             with engine.connect() as conn:
                 # Create schema
                 conn.execute(text("CREATE SCHEMA IF NOT EXISTS hrms"))
-                
-                # Create employees table
-                conn.execute(text("""
+                conn.execute(text(
+                    """
                     CREATE TABLE IF NOT EXISTS employees (
                         employee_id VARCHAR(50) PRIMARY KEY,
-                        display_name VARCHAR(255) NOT NULL,
+                        display_name VARCHAR(255),
                         employee_ou_type VARCHAR(100),
                         employee_department VARCHAR(100),
-                        delivery_owner_emp_id VARCHAR(50),
-                        delivery_owner VARCHAR(255),
-                        joined_date VARCHAR(50),
-                        role VARCHAR(100),
-                        deployment VARCHAR(100),
-                        created_by_employee_id VARCHAR(50),
-                        created_by_display_name VARCHAR(255),
-                        pm VARCHAR(255),
                         total_exp VARCHAR(50),
                         vvdn_exp VARCHAR(50),
                         designation VARCHAR(100),
@@ -404,55 +439,57 @@ class UploadService:
                         rm_id VARCHAR(50),
                         rm_name VARCHAR(255),
                         skill_set TEXT,
-                        occupancy INTEGER DEFAULT 0,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                    """))
                 
-                # Add new columns if they don't exist
-                conn.execute(text("""
-                    ALTER TABLE employees 
-                    ADD COLUMN IF NOT EXISTS employee_ou_type VARCHAR(100),
-                    ADD COLUMN IF NOT EXISTS delivery_owner_emp_id VARCHAR(50),
-                    ADD COLUMN IF NOT EXISTS delivery_owner VARCHAR(255),
-                    ADD COLUMN IF NOT EXISTS joined_date VARCHAR(50),
-                    ADD COLUMN IF NOT EXISTS created_by_employee_id VARCHAR(50),
-                    ADD COLUMN IF NOT EXISTS created_by_display_name VARCHAR(255),
-                    ADD COLUMN IF NOT EXISTS pm VARCHAR(255),
-                    ADD COLUMN IF NOT EXISTS sub_department VARCHAR(100),
-                    ADD COLUMN IF NOT EXISTS rm_id VARCHAR(50),
-                    ADD COLUMN IF NOT EXISTS rm_name VARCHAR(255)
-                """))
-                
-                # Create projects table
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS employee_projects (
-                        project_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        employee_id VARCHAR(50) NOT NULL,
-                        project_name VARCHAR(255),
+                conn.execute(text(
+                    """
+                    CREATE TABLE IF NOT EXISTS projects (
+                        project_name VARCHAR(50) PRIMARY KEY,
                         customer VARCHAR(255),
                         project_department VARCHAR(100),
                         project_industry VARCHAR(100),
-                        project_status VARCHAR(100),
-                        occupancy INTEGER DEFAULT 0,
-                        start_date DATE,
-                        end_date DATE,
+                        project_status VARCHAR(50),
+                        delivery_owner_emp_id VARCHAR(50),
+                        delivery_owner VARCHAR(255),
+                        pm VARCHAR(255),
+                        project_category VARCHAR(255),
+                        project_committed_end_date DATE,
+                        project_extended_end_date DATE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                    """
+                ))
+
+                conn.execute(text(
+                    """
+                    CREATE TABLE IF NOT EXISTS employee_projects (
+                        id SERIAL PRIMARY KEY,
+                        employee_id VARCHAR(50) REFERENCES employees(employee_id),
+                        project_name VARCHAR(50) REFERENCES projects(project_name),
+                        project_joined_date DATE,
                         role VARCHAR(100),
                         deployment VARCHAR(100),
-                        project_extended_end_date DATE,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
+                        committed_relieving_date DATE,
+                        extended_relieving_date DATE,
+                        occupancy INTEGER DEFAULT 0,
+                        created_by_employee_id VARCHAR(50),
+                        created_by_display_name VARCHAR(255),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                    """
+                ))
                 
-                # Add new columns if they don't exist
-                conn.execute(text("""
-                    ALTER TABLE employee_projects 
-                    ADD COLUMN IF NOT EXISTS occupancy INTEGER DEFAULT 0,
-                    ADD COLUMN IF NOT EXISTS start_date DATE,
-                    ADD COLUMN IF NOT EXISTS end_date DATE,
-                    ADD COLUMN IF NOT EXISTS role VARCHAR(100),
-                    ADD COLUMN IF NOT EXISTS deployment VARCHAR(100),
-                    ADD COLUMN IF NOT EXISTS project_extended_end_date DATE
+                conn.execute(text("""CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(100) UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
                 """))
                 
                 conn.commit()
@@ -483,18 +520,37 @@ class UploadService:
                 # Get projects
                 projects_result = session.execute(
                     text("""
-                        SELECT * FROM employee_projects 
-                        WHERE employee_id = :employee_id 
-                        ORDER BY created_at DESC
+                        SELECT 
+                            ep.*,
+                            p.project_name,
+                            p.customer,
+                            p.project_department,
+                            p.project_industry,
+                            p.project_status,
+                            p.project_category,
+                            p.pm,
+                            p.project_committed_end_date,
+                            p.project_extended_end_date
+                        FROM employee_projects ep
+                        LEFT JOIN projects p 
+                            ON ep.project_name = p.project_name
+                        WHERE ep.employee_id = :employee_id
+                        ORDER BY ep.created_at DESC
                     """),
                     {"employee_id": employee_id}
                 )
                 
-                projects = [dict(row._mapping) for row in projects_result]
+                projects = []
+                for row in projects_result:
+                    row_dict = dict(row._mapping)
+                    projects.append(row_dict)
                 employee_dict = dict(employee._mapping)
                 employee_dict['projects'] = projects
-                
-                return {"status": "success", "employee": employee_dict}
+
+                return {
+                    "status": "success",
+                    "employee": employee_dict
+                }
                 
         except Exception as e:
             logger.error(f"Error getting employee details: {e}")
@@ -552,53 +608,102 @@ class UploadService:
         try:
             with get_db_session() as session:
                 projects = projects_data.get('projects', [])
-                
-                # Get current total occupancy
+
+                # ================= CURRENT OCCUPANCY =================
                 current_result = session.execute(
-                    text("SELECT COALESCE(SUM(occupancy), 0) as total FROM employee_projects WHERE employee_id = :employee_id"),
+                    text("""
+                        SELECT COALESCE(SUM(occupancy), 0) as total 
+                        FROM employee_projects 
+                        WHERE employee_id = :employee_id
+                    """),
                     {"employee_id": employee_id}
                 )
                 current_occupancy = current_result.fetchone().total
-                
-                # Validate new total occupancy
+
+                # ================= VALIDATION =================
                 new_occupancy = sum(p.get('occupancy', 0) for p in projects)
                 total_occupancy = current_occupancy + new_occupancy
-                
+
                 if total_occupancy > 100:
-                    raise ValueError(f"Total occupancy would be {total_occupancy}% (current: {current_occupancy}%, adding: {new_occupancy}%). Cannot exceed 100%")
-                
-                # Insert new projects
+                    raise ValueError(
+                        f"Total occupancy would be {total_occupancy}% "
+                        f"(current: {current_occupancy}%, adding: {new_occupancy}%). Cannot exceed 100%"
+                    )
+
+                # ================= INSERT =================
                 for project in projects:
+                    project_name = project.get('project_name')  # using project_name as project_id
+
+                    if not project_name:
+                        continue
+
+                    # -------- 1. INSERT INTO PROJECTS (if not exists) --------
                     session.execute(
                         text("""
-                            INSERT INTO employee_projects (
-                                employee_id, project_name, customer, project_department,
-                                project_industry, project_status, occupancy,
-                                start_date, end_date, role, deployment, project_extended_end_date
-                            ) VALUES (
-                                :employee_id, :project_name, :customer, :project_department,
-                                :project_industry, :project_status, :occupancy,
-                                :start_date, :end_date, :role, :deployment, :project_extended_end_date
+                            INSERT INTO projects (
+                                project_name customer, project_department,
+                                project_industry, project_status,
+                                project_category, pm,
+                                project_committed_end_date, project_extended_end_date
                             )
+                            VALUES (
+                                :project_name, :customer, :project_department,
+                                :project_industry, :project_status,
+                                :project_category, :pm,
+                                :project_committed_end_date, :project_extended_end_date
+                            )
+                            ON CONFLICT (project_id) DO NOTHING
                         """),
                         {
-                            "employee_id": employee_id,
-                            "project_name": project.get('project_name', ''),
+                            "project_name": project_name,
                             "customer": project.get('customer', ''),
                             "project_department": project.get('project_department', ''),
                             "project_industry": project.get('project_industry', ''),
                             "project_status": project.get('project_status', 'active'),
-                            "occupancy": project.get('occupancy', 0),
-                            "start_date": project.get('start_date'),
-                            "end_date": project.get('end_date'),
-                            "role": project.get('role', ''),
-                            "deployment": project.get('deployment', ''),
+                            "project_category": project.get('project_category', ''),
+                            "pm": project.get('pm', ''),
+                            "project_committed_end_date": project.get('project_committed_end_date'),
                             "project_extended_end_date": project.get('project_extended_end_date')
                         }
                     )
-                
-                return {"status": "success", "message": f"Added {len(projects)} projects successfully"}
-                
+
+                    # -------- 2. INSERT INTO EMPLOYEE_PROJECTS --------
+                    session.execute(
+                        text("""
+                            INSERT INTO employee_projects (
+                                employee_id, project_name, project_joined_date,
+                                role, deployment, occupancy,
+                                committed_relieving_date, extended_relieving_date,
+                                created_by_employee_id, created_by_display_name
+                            )
+                            VALUES (
+                                :employee_id, :project_name, :project_joined_date,
+                                :role, :deployment, :occupancy,
+                                :committed_relieving_date, :extended_relieving_date,
+                                :created_by_employee_id, :created_by_display_name
+                            )
+                        """),
+                        {
+                            "employee_id": employee_id,
+                            "project_name": project_name,
+                            "project_joined_date": project.get('project_joined_date'),
+                            "role": project.get('role', ''),
+                            "deployment": project.get('deployment', ''),
+                            "occupancy": project.get('occupancy', 0),
+                            "committed_relieving_date": project.get('project_committed_end_date'),
+                            "extended_relieving_date": project.get('project_extended_end_date'),
+                            "created_by_employee_id": employee_id,
+                            "created_by_display_name": project.get('created_by_display_name', '')
+                        }
+                    )
+
+                session.commit()
+
+                return {
+                    "status": "success",
+                    "message": f"Added {len(projects)} projects successfully"
+                }
+
         except Exception as e:
             logger.error(f"Error adding projects: {e}")
             raise
@@ -618,12 +723,27 @@ class UploadService:
                 # Get projects
                 projects_result = session.execute(
                     text("""
-                        SELECT id, project_name, customer, project_department,
-                               project_industry, project_status, occupancy,
-                               start_date, end_date, role, deployment, project_extended_end_date
-                        FROM employee_projects 
-                        WHERE employee_id = :employee_id 
-                        ORDER BY created_at DESC
+                        SELECT 
+                            ep.id,
+                            ep.project_name,
+                            p.customer,
+                            p.project_department,
+                            p.project_industry,
+                            p.project_status,
+                            ep.occupancy,
+                            ep.role,
+                            ep.deployment,
+                            ep.project_joined_date,
+                            p.project_extended_end_date,
+                            p.project_committed_end_date
+
+                        FROM employee_projects ep
+                        LEFT JOIN projects p 
+                            ON ep.project_name = p.project_name
+
+                        WHERE ep.employee_id = :employee_id
+
+                        ORDER BY ep.created_at DESC
                     """),
                     {"employee_id": employee_id}
                 )
@@ -645,8 +765,7 @@ class UploadService:
                         "occupancy": occupancy,
                         "role": row.role,
                         "deployment": row.deployment,
-                        "start_date": str(row.start_date) if row.start_date else None,
-                        "end_date": str(row.end_date) if row.end_date else None,
+                        "project_committed_end_date": str(row.project_committed_end_date) if row.project_committed_end_date else None,
                         "project_extended_end_date": str(row.project_extended_end_date) if row.project_extended_end_date else None
                     })
                 
@@ -695,35 +814,35 @@ class UploadService:
             logger.error(f"Error deleting all projects: {e}")
             raise
     
-    async def delete_employee_project(self, employee_id: str, project_id: str) -> Dict[str, Any]:
+    async def delete_employee_project(self, employee_id: str, project_name: str) -> Dict[str, Any]:
         """Delete specific project for an employee"""
         try:
             with get_db_session() as session:
                 # Check if project exists for this employee
                 project_check = session.execute(
                     text("""
-                        SELECT project_name FROM employee_projects 
-                        WHERE employee_id = :employee_id AND id = :project_id
+                        SELECT id FROM employee_projects 
+                        WHERE employee_id = :employee_id AND project_name = :project_name
                     """),
-                    {"employee_id": employee_id, "project_id": project_id}
+                    {"employee_id": employee_id, "project_name": project_name}
                 )
-                project = project_check.fetchone()
+                project_id = project_check.fetchone()
                 
-                if not project:
-                    raise ValueError(f"Project {project_id} not found for employee {employee_id}")
+                if not project_id:
+                    raise ValueError(f"Project {project_name} not found for employee {employee_id}")
                 
                 # Delete the project
                 session.execute(
                     text("""
                         DELETE FROM employee_projects 
-                        WHERE employee_id = :employee_id AND id = :project_id
+                        WHERE employee_id = :employee_id AND project_name = :project_name
                     """),
-                    {"employee_id": employee_id, "project_id": project_id}
+                    {"employee_id": employee_id, "project_name": project_name}
                 )
                 
                 return {
                     "status": "success",
-                    "message": f"Deleted project '{project.project_name}' for employee {employee_id}"
+                    "message": f"Deleted project '{project_name}' for employee {employee_id}"
                 }
                 
         except Exception as e:
@@ -735,8 +854,8 @@ class UploadService:
         try:
             with get_db_session() as session:
                 # Build dynamic update query
-                allowed_fields = ['display_name', 'employee_department', 'role', 'deployment', 
-                                'total_exp', 'vvdn_exp', 'designation', 'tech_group', 'emp_location']
+                allowed_fields = ['display_name', 'employee_department', 'total_exp', 'vvdn_exp',
+                                'designation', 'tech_group', 'emp_location']
                 
                 update_fields = []
                 params = {'employee_id': employee_id}
@@ -771,21 +890,35 @@ class UploadService:
                         """
                         SELECT 
                             e.*,
-
                             COALESCE(
-                                json_agg(DISTINCT to_jsonb(ep))
-                                FILTER (WHERE ep.employee_id IS NOT NULL),
+                                json_agg(
+                                    DISTINCT jsonb_build_object(
+                                        'project_name', p.project_name,
+                                        'customer', p.customer,
+                                        'project_department', p.project_department,
+                                        'project_industry', p.project_industry,
+                                        'project_status', p.project_status,
+                                        'project_category', p.project_category,
+                                        'pm', p.pm,
+                                        'role', ep.role,
+                                        'deployment', ep.deployment,
+                                        'occupancy', ep.occupancy,
+                                        'project_joined_date', ep.project_joined_date,
+                                        'project_extended_end_date', p.project_extended_end_date,
+                                        'project_committed_end_date', p.project_committed_end_date
+                                    )
+                                ) FILTER (WHERE ep.employee_id IS NOT NULL),
                                 '[]'::json
                             ) AS projects
-
                         FROM employees e
                         LEFT JOIN employee_projects ep 
                             ON e.employee_id = ep.employee_id
-
+                        LEFT JOIN projects p 
+                            ON ep.project_name = p.project_name
                         GROUP BY e.employee_id
-
                         ORDER BY split_part(e.employee_id, '/', 2)::int
-                        LIMIT :limit OFFSET :offset;"""
+                        LIMIT :limit OFFSET :offset;
+                        """
                     ),
                     {
                         "limit": page_size,

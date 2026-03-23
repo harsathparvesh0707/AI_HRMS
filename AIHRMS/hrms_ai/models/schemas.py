@@ -38,23 +38,7 @@ class SearchRequest(BaseModel):
     search_type: Optional[str] = "combined"
 
 
-class QueryRequest(BaseModel):
-    query: str
-    required_skills: Optional[List[str]] = None
-    min_experience: Optional[float] = None
-    max_results: Optional[int] = 50
-    user_id: Optional[str] = "anonymous"
 
-
-class ChatResponse(BaseModel):
-    action: str
-    response: str
-    data: List[Dict[str, Any]]  # Changed from Dict to List to match new format
-    ui_suggestions: List[Dict[str, Any]]
-    search_metadata: Dict[str, Any]
-    results: Optional[List[Dict[str, Any]]] = None
-    metadata: Optional[Dict[str, Any]] = None
-    query_id: Optional[str] = None
 
 class SearchResponse(BaseModel):
     action: str
@@ -81,11 +65,6 @@ class EmployeeData(BaseModel):
     ai_score: Optional[float] = None
     score_breakdown: Optional[Dict[str, Any]] = None
     designation: Optional[str] = None
-
-class QueryResponse(BaseModel):
-    chat_response: str
-    data: List[Dict[str, Any]]  # More flexible than EmployeeData
-    ui_actions: List[str]
 
 
 class UploadResponse(BaseModel):

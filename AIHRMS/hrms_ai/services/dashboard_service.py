@@ -14,17 +14,17 @@ class DashboardService:
 
                 # 1️⃣ Total employees
                 total_employees = db.execute(
-                    text("SELECT COUNT(DISTINCT employee_id) FROM employees")
+                    text("SELECT COUNT(*) FROM employees")
                 ).scalar()
 
                 # 2️⃣ Project-wise counts
                 rows = db.execute(
                     text("""
                         SELECT
-                            project_name,
-                            COUNT(DISTINCT employee_id) AS employee_count
-                        FROM employee_projects
-                        GROUP BY project_name
+                            ep.project_name,
+                            COUNT(DISTINCT ep.employee_id) AS employee_count
+                        FROM employee_projects ep
+                        GROUP BY ep.project_name
                         ORDER BY employee_count DESC
                     """)
                 ).mappings().all()
@@ -66,11 +66,12 @@ class DashboardService:
                 rows = db.execute(
                     text("""
                         SELECT
-                            employee_department,
-                            COUNT(DISTINCT employee_id) AS employee_count
-                        FROM employees
-                        WHERE employee_department IS NOT NULL
-                        GROUP BY employee_department
+                            e.employee_department,
+                            COUNT(*) AS employee_count
+                        FROM employees e
+                        WHERE e.employee_department IS NOT NULL
+                         AND TRIM(e.employee_department) <> ''
+                        GROUP BY e.employee_department
                         ORDER BY employee_count DESC
                     """)
                 ).mappings().all()
@@ -96,7 +97,7 @@ class DashboardService:
 
                             (SELECT COUNT(DISTINCT project_name) FROM employee_projects) AS total_project_count,
 
-                            (SELECT COUNT(DISTINCT employee_id) FROM employee_projects WHERE project_name ILIKE '%FREE') AS freepool_employee_count;
+                            (SELECT COUNT(DISTINCT employee_id) FROM employee_projects WHERE LOWER(deployment) LIKE '%free%') AS freepool_employee_count;
                     """)
                 ).mappings().first()
             counts = {"freepool_count": row["freepool_employee_count"], "project_count": row["total_project_count"], "employee_count": row["total_employee_count"]}
@@ -146,8 +147,23 @@ class DashboardService:
                             e.*,
 
                             COALESCE(
-                                json_agg(DISTINCT to_jsonb(ep))
-                                FILTER (WHERE ep.employee_id IS NOT NULL),
+                                json_agg(
+                                    DISTINCT jsonb_build_object(
+                                        'project_name', p.project_name,
+                                        'customer', p.customer,
+                                        'project_department', p.project_department,
+                                        'project_industry', p.project_industry,
+                                        'project_status', p.project_status,
+                                        'project_category', p.project_category,
+                                        'pm', p.pm,
+                                        'role', ep.role,
+                                        'deployment', ep.deployment,
+                                        'occupancy', ep.occupancy,
+                                        'project_joined_date', ep.project_joined_date,
+                                        'project_extended_end_date', p.project_extended_end_date,
+                                        'project_committed_end_date', p.project_committed_end_date
+                                    )
+                                ) FILTER (WHERE ep.employee_id IS NOT NULL),
                                 '[]'::json
                             ) AS projects,
 
@@ -157,6 +173,9 @@ class DashboardService:
 
                         LEFT JOIN employee_projects ep 
                             ON e.employee_id = ep.employee_id
+
+                        LEFT JOIN projects p 
+                            ON ep.project_name = p.project_name
 
                         WHERE EXISTS (
                             SELECT 1 
@@ -168,8 +187,7 @@ class DashboardService:
                         GROUP BY e.employee_id
 
                         ORDER BY split_part(e.employee_id, '/', 2)::int
-                        LIMIT :limit OFFSET :offset;
-                        """), 
+                        LIMIT :limit OFFSET :offset;"""), 
                         {
                             "deployments": db_values,
                             "limit": page_size,

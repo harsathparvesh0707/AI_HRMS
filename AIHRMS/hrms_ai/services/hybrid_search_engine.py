@@ -3061,7 +3061,7 @@ class HybridSearchEngine:
                 conditions.append("ep.deployment ILIKE :dep")
                 params["dep"] = f"%{deployment}%"
             if project:
-                conditions.append("(ep.project_name ILIKE :proj OR ep.customer ILIKE :proj OR ep.project_department ILIKE :proj)")
+                conditions.append("(p.project_name ILIKE :proj OR p.customer ILIKE :proj OR p.project_department ILIKE :proj)")
                 params["proj"] = f"%{project}%"
             if (project or deployment):
                 if project_duration_min_days:
@@ -3105,11 +3105,13 @@ class HybridSearchEngine:
             base_query = """
             SELECT e.employee_id, e.display_name, e.employee_department, 
                 e.total_exp, e.skill_set, e.emp_location, e.designation, 
-                e.tech_group, e.vvdn_exp, e.pm,
-                string_agg(DISTINCT ep.project_name, ', ') AS projects,
+                e.tech_group, e.vvdn_exp,
+                string_agg(DISTINCT p.pm, ', ') AS pm,
+                string_agg(DISTINCT p.project_name, ', ') AS projects,
                 string_agg(DISTINCT ep.deployment, ', ') AS deployments
             FROM employees e
             LEFT JOIN employee_projects ep ON e.employee_id = ep.employee_id
+            LEFT JOIN projects p ON ep.project_name = p.project_name
             WHERE TRUE
             AND (ep.deployment IS NULL OR LOWER(ep.deployment) NOT LIKE '%long leave%')
             """
@@ -3527,21 +3529,35 @@ class HybridSearchEngine:
                 - emp_location
                 - skill_set
                 - total_exp
+                - vvdn_exp
+                - sub_department
+                - rm_id
+                - rm_name
 
                 employee_projects (alias: ep):
                 - id
                 - employee_id
                 - project_name
-                - deployment
+                - project_joined_date
                 - role
+                - deployment
+                - occupancy
+                - committed_relieving_date
+                - extended_relieving_date
+
+                projects (alias: p):
+                - project_name
                 - customer
                 - project_department
                 - project_industry
                 - project_status
-                - occupancy
+                - project_category
+                - delivery_owner_emp_id
+                - delivery_owner
+                - pm
+                - project_committed_end_date
                 - project_extended_end_date
-                - project_joined_date
-
+                
                 FILTER RULES:
 
                 - skills → e.skill_set ILIKE
@@ -3616,7 +3632,7 @@ class HybridSearchEngine:
                             OR ep2.deployment ILIKE '%trai%'
                         )
                     )
-                - project → ep.project_name ILIKE
+                - project → p.project_name ILIKE
 
                 MULTI-VALUE RULE:
                 If a field contains multiple values (array),
@@ -3676,16 +3692,20 @@ class HybridSearchEngine:
                         json_agg(
                             jsonb_build_object(
                                 'id', ep.id,
-                                'project_name', ep.project_name,
-                                'customer', ep.customer,
-                                'project_department', ep.project_department,
-                                'project_industry', ep.project_industry,
-                                'project_status', ep.project_status,
-                                'occupancy', ep.occupancy,
+                                'project_name', p.project_name,
+                                'customer', p.customer,
+                                'project_department', p.project_department,
+                                'project_industry', p.project_industry,
+                                'project_status', p.project_status,
+                                'project_category', p.project_category,
+                                'project_committed_end_date', p.project_committed_end_date,
+                                'project_extended_end_date', p.project_extended_end_date,
                                 'project_joined_date', ep.project_joined_date,
-                                'project_extended_end_date', ep.project_extended_end_date,
                                 'role', ep.role,
-                                'deployment', ep.deployment
+                                'deployment', ep.deployment,
+                                'occupancy', ep.occupancy,
+                                'committed_relieving_date', ep.committed_relieving_date,
+                                'extended_relieving_date', ep.extended_relieving_date
                             )
                         ) FILTER (WHERE ep.id IS NOT NULL),
                         '[]'
@@ -3693,6 +3713,8 @@ class HybridSearchEngine:
                 FROM employees e
                 LEFT JOIN employee_projects ep 
                     ON e.employee_id = ep.employee_id
+                LEFT JOIN projects p 
+                    ON ep.project_name = p.project_name
                 WHERE 1=1"""
                 final_query = base_query + "\n" + sql_query + """
                 GROUP BY e.employee_id

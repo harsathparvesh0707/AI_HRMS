@@ -40,19 +40,14 @@ def init_database():
     """Initialize database tables in public schema"""
     try:
         with engine.connect() as conn:
-            # Create employees table in public schema (removed role, deployment, occupancy)
-            conn.execute(text("""
+            logger.info("Database Initialization...")
+            conn.execute(text(
+                """
                 CREATE TABLE IF NOT EXISTS employees (
                     employee_id VARCHAR(50) PRIMARY KEY,
                     display_name VARCHAR(255),
                     employee_ou_type VARCHAR(100),
                     employee_department VARCHAR(100),
-                    delivery_owner_emp_id VARCHAR(50),
-                    delivery_owner VARCHAR(255),
-                    joined_date VARCHAR(50),
-                    created_by_employee_id VARCHAR(50),
-                    created_by_display_name VARCHAR(255),
-                    pm VARCHAR(255),
                     total_exp VARCHAR(50),
                     vvdn_exp VARCHAR(50),
                     designation VARCHAR(100),
@@ -64,58 +59,51 @@ def init_database():
                     skill_set TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """))
+                );
+                """))
             
-            # Remove redundant columns if they exist
-            try:
-                conn.execute(text("ALTER TABLE employees DROP COLUMN IF EXISTS role"))
-                conn.execute(text("ALTER TABLE employees DROP COLUMN IF EXISTS deployment"))
-                conn.execute(text("ALTER TABLE employees DROP COLUMN IF EXISTS occupancy"))
-                conn.execute(text("ALTER TABLE employees DROP COLUMN IF EXISTS joined_date"))
-            except Exception as e:
-                logger.info(f"Column removal info: {e}")
-
-            conn.execute(text("""
-                ALTER TABLE employees
-                ADD COLUMN IF NOT EXISTS committed_relieving_date DATE,
-                ADD COLUMN IF NOT EXISTS joined_date DATE,
-                ADD COLUMN IF NOT EXISTS extended_relieving_date DATE;
-            """))
-            
-            # Create employee_projects table in public schema
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS employee_projects (
-                    id SERIAL PRIMARY KEY,
-                    employee_id VARCHAR(50) REFERENCES employees(employee_id),
-                    project_name VARCHAR(255),
+            conn.execute(text(
+                """
+                CREATE TABLE IF NOT EXISTS projects (
+                    project_name VARCHAR(50) PRIMARY KEY,
                     customer VARCHAR(255),
                     project_department VARCHAR(100),
                     project_industry VARCHAR(100),
-                    project_status VARCHAR(100),
-                    occupancy INTEGER DEFAULT 0,
+                    project_status VARCHAR(50),
+                    delivery_owner_emp_id VARCHAR(50),
+                    delivery_owner VARCHAR(255),
+                    pm VARCHAR(255),
+                    project_category VARCHAR(255),
+                    project_committed_end_date DATE,
+                    project_extended_end_date DATE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            ))
+
+            conn.execute(text(
+                """
+                CREATE TABLE IF NOT EXISTS employee_projects (
+                    id SERIAL PRIMARY KEY,
+                    employee_id VARCHAR(50) REFERENCES employees(employee_id),
+                    project_name VARCHAR(50) REFERENCES projects(project_name),
+                    project_joined_date DATE,
                     start_date DATE,
                     end_date DATE,
                     role VARCHAR(100),
                     deployment VARCHAR(100),
-                    project_extended_end_date DATE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """))
+                    committed_relieving_date DATE,
+                    extended_relieving_date DATE,
+                    occupancy INTEGER DEFAULT 0,
+                    created_by_employee_id VARCHAR(50),
+                    created_by_display_name VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            ))
             
-            # Add new columns to existing table if they don't exist
-            conn.execute(text("""
-                ALTER TABLE employee_projects 
-                ADD COLUMN IF NOT EXISTS occupancy INTEGER DEFAULT 0,
-                ADD COLUMN IF NOT EXISTS start_date DATE,
-                ADD COLUMN IF NOT EXISTS end_date DATE,
-                ADD COLUMN IF NOT EXISTS role VARCHAR(100),
-                ADD COLUMN IF NOT EXISTS deployment VARCHAR(100),
-                ADD COLUMN IF NOT EXISTS project_extended_end_date DATE,
-                ADD COLUMN IF NOT EXISTS project_joined_date DATE,
-                ADD COLUMN IF NOT EXISTS project_committed_end_date DATE;
-            """))
-
             conn.execute(text("""CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 username VARCHAR(100) UNIQUE NOT NULL,
@@ -123,29 +111,33 @@ def init_database():
                 is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
             """))
-            
-            # Create performance indexes for ultra-fast text search
+
             logger.info("📈 Creating performance indexes...")
-            
-            # Create trigram extension if not exists
+
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
-            
-            # Create trigram indexes for fuzzy text search
+
             indexes = [
-                "CREATE INDEX IF NOT EXISTS idx_skill_set_trgm ON employees USING gin (skill_set gin_trgm_ops)",
-                "CREATE INDEX IF NOT EXISTS idx_tech_group_trgm ON employees USING gin (tech_group gin_trgm_ops)", 
-                "CREATE INDEX IF NOT EXISTS idx_emp_location_trgm ON employees USING gin (emp_location gin_trgm_ops)",
-                "CREATE INDEX IF NOT EXISTS idx_display_name_trgm ON employees USING gin (display_name gin_trgm_ops)",
-                "CREATE INDEX IF NOT EXISTS idx_employee_department_trgm ON employees USING gin (employee_department gin_trgm_ops)",
-                # Regular indexes for exact matches
-                "CREATE INDEX IF NOT EXISTS idx_employee_id ON employees (employee_id)",
-                "CREATE INDEX IF NOT EXISTS idx_designation ON employees (designation)",
-                # Project table indexes
-                "CREATE INDEX IF NOT EXISTS idx_ep_employee_id ON employee_projects (employee_id)",
-                "CREATE INDEX IF NOT EXISTS idx_ep_deployment_trgm ON employee_projects USING gin (deployment gin_trgm_ops)",
-                "CREATE INDEX IF NOT EXISTS idx_ep_project_name_trgm ON employee_projects USING gin (project_name gin_trgm_ops)"
-            ]
-            
+                # Employees
+                    "CREATE INDEX IF NOT EXISTS idx_emp_skill_set_trgm ON employees USING gin (skill_set gin_trgm_ops)",
+                    "CREATE INDEX IF NOT EXISTS idx_emp_tech_group_trgm ON employees USING gin (tech_group gin_trgm_ops)",
+                    "CREATE INDEX IF NOT EXISTS idx_emp_location_trgm ON employees USING gin (emp_location gin_trgm_ops)",
+                    "CREATE INDEX IF NOT EXISTS idx_emp_display_name_trgm ON employees USING gin (display_name gin_trgm_ops)",
+                    "CREATE INDEX IF NOT EXISTS idx_emp_department_trgm ON employees USING gin (employee_department gin_trgm_ops)",
+                    "CREATE INDEX IF NOT EXISTS idx_emp_designation ON employees (designation)",
+                # Projects
+                    "CREATE INDEX IF NOT EXISTS idx_proj_customer_trgm ON projects USING gin (customer gin_trgm_ops)",
+                    "CREATE INDEX IF NOT EXISTS idx_proj_project_committed_end_date ON projects (project_committed_end_date)",
+                    "CREATE INDEX IF NOT EXISTS idx_proj_project_extended_end_date ON projects (project_extended_end_date)",
+                # Employee Projects
+                    "CREATE INDEX IF NOT EXISTS idx_ep_employee_id ON employee_projects (employee_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_ep_project_id ON employee_projects (project_name)",
+                    "CREATE INDEX IF NOT EXISTS idx_ep_employee_project ON employee_projects (employee_id, project_name)",
+                    "CREATE INDEX IF NOT EXISTS idx_ep_occupancy ON employee_projects (occupancy)",
+                    "CREATE INDEX IF NOT EXISTS idx_ep_deployment_trgm ON employee_projects USING gin (deployment gin_trgm_ops)",
+                    "CREATE INDEX IF NOT EXISTS idx_ep_joined_date ON employee_projects (project_joined_date)",
+                    "CREATE INDEX IF NOT EXISTS idx_ep_committed_relieving_date ON employee_projects (committed_relieving_date)",
+                    "CREATE INDEX IF NOT EXISTS idx_ep_extended_relieving_date ON employee_projects (extended_relieving_date)"
+                ]
             for index_sql in indexes:
                 try:
                     conn.execute(text(index_sql))
@@ -153,7 +145,7 @@ def init_database():
                     logger.info(f"✅ Created index: {index_name}")
                 except Exception as e:
                     logger.warning(f"⚠️ Index creation failed: {e}")
-            
+
             conn.commit()
             logger.info("✅ Database tables and indexes initialized successfully")
             

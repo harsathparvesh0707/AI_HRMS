@@ -10,9 +10,14 @@ class ProjectRepository(BaseRepository):
     def get_projects_by_employee(self, employee_id: str) -> List[Dict[str, Any]]:
         """Get all projects for an employee"""
         query = """
-        SELECT * FROM employee_projects 
-        WHERE employee_id = :employee_id 
-        ORDER BY created_at DESC
+        SELECT 
+            ep.*,
+            p.*
+        FROM employee_projects ep
+        LEFT JOIN projects p 
+            ON ep.project_name = p.project_name
+        WHERE ep.employee_id = :employee_id
+        ORDER BY ep.created_at DESC;
         """
         return self.execute_query(query, {"employee_id": employee_id})
     
@@ -128,7 +133,8 @@ class ProjectRepository(BaseRepository):
     
     def get_employees_with_projects(self) -> List[Dict[str, Any]]:
         return self.execute_query("""
-            SELECT e.*, p.*
+            SELECT e.*, ep.*, p.*
             FROM employees e
-            LEFT JOIN employee_projects p ON p.employee_id = e.employee_id
+            LEFT JOIN employee_projects ep ON ep.employee_id = e.employee_id
+            LEFT JOIN projects p ON ep.project_name = p.project_name
         """)

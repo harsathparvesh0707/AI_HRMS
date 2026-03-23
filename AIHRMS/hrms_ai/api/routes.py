@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 from ..services.upload_service import UploadService
 from ..services.embedding_cache_service import EmbeddingCacheService
 from ..services.dashboard_service import DashboardService
-from ..models.schemas import (ChatRequest, ChatResponse, UploadResponse, QueryRequest, QueryResponse,
+from ..models.schemas import (ChatRequest, UploadResponse,
                             SkillsUpdateRequest, ProjectsUpdateRequest, ProfileUpdateRequest, EmployeeResponse, ProjectsListResponse,
                             ProjectDistributionResponse, DepartmentDistributionResponse, AvailableEmployeesResponse, LowOccupancyResponse,
                             FreepoolCount, EmployeeDirectoryResponse, DeploymentFilter, AIRequest, User, UserResponse)
@@ -65,62 +65,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail=str(e))
 
 
-@api_router.post("/search", response_model=ChatResponse, tags=["search"])
-async def search_employees(request: ChatRequest, current_user: dict = Depends(get_current_user)) -> ChatResponse:
-    """Employee search"""
-    result = await search_service.process_query(
-        query=request.query,
-        top_k=request.top_k,
-        search_type=request.search_type or "combined"
-    )
-    return result
-
-@api_router.post("/search-result", tags=["search"])
-async def search_results_only(request: ChatRequest, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
-    """Search without ranking - for optimization"""
-    logger.info(f"🔍 /search-result API called with query: '{request.query}'")
-    print(f"🔍 /search-result API called with query: '{request.query}'")
-    
-    result = await search_service.process_search_only(
-        query=request.query,
-        top_k=request.top_k
-    )
-    
-    logger.info(f"✅ /search-result completed: {result.get('total_results', 0)} results")
-    print(f"✅ /search-result completed: {result.get('total_results', 0)} results")
-    return result
-
-
-@api_router.post("/search-rank", tags=["search"])
-async def search_results_only(request: ChatRequest, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
-    """Search without ranking - for optimization"""
-    logger.info(f"🔍 /search-result API called with query: '{request.query}'")
-    print(f"🔍 /search-result API called with query: '{request.query}'")
-    
-    result = await search_service.process_search_and_rank_with_criteria_simplified_new_llm_semantic(
-        query=request.query,
-        top_k=request.top_k
-    )
-    
-    logger.info(f"✅ /search-rank completed: {result.get('total_results', 0)} results")
-    print(f"✅ /search-rank completed: {result.get('total_results', 0)} results")
-    return result
-
-@api_router.post("/search-rank-simplified", tags=["search"])
-async def search_results_simplified(request: ChatRequest, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
-    """Search with simplified parsing - uses general tech categories instead of specific ones"""
-    logger.info(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
-    print(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
-    
-    result = await search_service.process_search_and_rank_with_criteria_simplified_new(
-        query=request.query,
-        top_k=request.top_k
-    )
-    
-    logger.info(f"✅ /search-rank-simplified completed: {result.get('total_results', 0)} results")
-    print(f"✅ /search-rank-simplified completed: {result.get('total_results', 0)} results")
-    return result
-
 
 @api_router.post("/search-rank-simplified-new", tags=["search"])
 async def search_results_simplified_new(request: ChatRequest, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
@@ -137,30 +81,6 @@ async def search_results_simplified_new(request: ChatRequest, current_user: dict
     print(f"✅ /search-rank-simplified completed: {result.get('total_results', 0)} results")
     return result
 
-@api_router.post("/search-rank-simplified-semantic", tags=["search"])
-async def search_results_simplified_new(request: ChatRequest, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
-    """Search with simplified parsing - uses general tech categories instead of specific ones"""
-    logger.info(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
-    print(f"🔍 /search-rank-simplified API called with query: '{request.query}'")
-    
-    result = await search_service.process_search_and_rank_with_criteria_simplified_new_llm_semantic(
-        query=request.query,
-        top_k=request.top_k
-    )
-    
-    logger.info(f"✅ /search-rank-simplified completed: {result.get('total_results', 0)} results")
-    print(f"✅ /search-rank-simplified completed: {result.get('total_results', 0)} results")
-    return result
-
-
-@api_router.post("/query", response_model=QueryResponse, tags=["search"])
-async def advanced_query(request: QueryRequest, current_user: dict = Depends(get_current_user)) -> QueryResponse:
-    """🔍 Advanced employee query with performance monitoring"""
-    try:
-        result = await search_service.process_advanced_query(request)     
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/upload/hrms-data", response_model=UploadResponse, tags=["upload"])
 async def upload_hrms_data(
@@ -511,13 +431,13 @@ async def delete_all_employee_projects(employee_id: str, current_user: dict = De
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@api_router.delete("/employees/{employee_id}/projects/{project_id}", tags=["employee-management"])
-async def delete_employee_project(employee_id: str, project_id: str, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
+@api_router.delete("/employees/{employee_id}/projects/{project_name}", tags=["employee-management"])
+async def delete_employee_project(employee_id: str, project_name: str, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Delete specific project for an employee"""
     try:
         # Add VVDN prefix if not present
         full_employee_id = f"VVDN/{employee_id}" if not employee_id.startswith("VVDN/") else employee_id
-        result = await upload_service.delete_employee_project(full_employee_id, project_id)
+        result = await upload_service.delete_employee_project(full_employee_id, project_name)
         
          # Invalidate and rebuild caches for this employee
         from ..services.cache_invalidation_service import cache_invalidation_service

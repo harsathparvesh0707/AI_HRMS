@@ -43,9 +43,10 @@ class ProjectDeadlineService:
             rows = db.execute(
                 text("""
                     SELECT
-                        project_name,
-                        COALESCE(project_extended_end_date, project_committed_end_date) AS effective_end_date
-                    FROM employee_projects
+                        ep.project_name,
+                        COALESCE(p.project_extended_end_date, p.project_committed_end_date) AS effective_end_date
+                    FROM employee_projects ep
+                    LEFT JOIN projects p ON ep.project_name = p.project_name
                 """)
             ).fetchall()
 
