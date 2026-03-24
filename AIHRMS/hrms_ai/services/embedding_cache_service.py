@@ -77,9 +77,10 @@ class EmbeddingCacheService:
                     SELECT DISTINCT e.employee_id, e.display_name, e.skill_set, 
                            e.tech_group, e.employee_department, e.emp_location,
                            ep.deployment, e.designation, e.total_exp,
-                           ep.project_name, ep.customer
+                           ep.project_name, p.customer
                     FROM employees e
                     LEFT JOIN employee_projects ep ON e.employee_id = ep.employee_id
+                    LEFT JOIN projects p ON ep.project_name = p.project_name
                 """))
                 
                 employees = [dict(row._mapping) for row in result]
