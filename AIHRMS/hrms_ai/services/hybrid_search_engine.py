@@ -2682,7 +2682,7 @@ class HybridSearchEngine:
             - project_duration_max_days: integer (maximum number of days in current project/deployment)
             - employee_name: name if specific person requested
             - skill_precision: "strict" if user specifies exact skill or says "exact match"
-            - ranking: one of [true, false] only choose true if the query specify to rank
+            - ranking: boolean
             - skill_context_mode: "OR" | "AND"
 
             If the query mentions Designer use → context = ["design"] keep remaining as you choose
@@ -2783,18 +2783,23 @@ class HybridSearchEngine:
 
             9. Determine if ranking is required:
 
-            Set "ranking": true when:
-            - The query implies quality comparison or prioritization
-            - Words like "skilled in", "strong in", "expert in", "best", 
-            "good at", "proficient", "experienced in", "available"
-            - When it's for project requirement or hiring decision
-            - When matching strength matters
+            Set "ranking": true by default.
 
-            Set "ranking": false when:
-            - Query is simple listing like:
-            "list all", "show all", "get employees"
-            - Basic filtering without comparison intent
-            - Simple tech + department queries
+            Set "ranking": false ONLY when the query explicitly contains listing-style commands such as:
+            - "list"
+            - "list all"
+            - "show"
+            - "show all"
+            - "fetch"
+            - "fetch all"
+            - "get"
+            - "get all"
+
+            Strict Rules:
+            1. If ANY of the above keywords are present → ranking = false
+            2. Otherwise → ranking = true
+            3. Do NOT infer ranking=false for simple filters or short queries
+            4. Do NOT set ranking=false unless explicitly triggered by these keywords
 
             Only set the fields:
                     project
