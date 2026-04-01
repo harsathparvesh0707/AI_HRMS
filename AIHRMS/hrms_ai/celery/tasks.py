@@ -72,7 +72,7 @@ def save_ranked_search_cache(self, cache_key: str, data: dict, ttl: int = 300):
         hybrid_engine.embedding_cache.redis_client.setex(
             cache_key,
             ttl,
-            json.dumps(data)
+            json.dumps(data, default=str)
         )
         logger.info("✅ Celery: Ranked search cache saved")
 
