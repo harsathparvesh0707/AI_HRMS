@@ -35,8 +35,8 @@ def job_wrapper():
 def start_scheduler():
     scheduler.add_job(
         job_wrapper,
-        IntervalTrigger(minutes=5),  # ⏰ Daily 9 AM
-        # CronTrigger(hour=0, minute=0),
+        # IntervalTrigger(minutes=5),  # ⏰ Daily 9 AM
+        CronTrigger(hour=0, minute=0),
         id="project_suggestion_job",
         replace_existing=True
     )
