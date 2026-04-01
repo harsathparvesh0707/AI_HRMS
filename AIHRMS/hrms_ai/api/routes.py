@@ -10,7 +10,7 @@ from ..services.dashboard_service import DashboardService
 from ..models.schemas import (ChatRequest, UploadResponse,
                             SkillsUpdateRequest, ProjectsUpdateRequest, ProfileUpdateRequest, EmployeeResponse, ProjectsListResponse,
                             ProjectDistributionResponse, DepartmentDistributionResponse, AvailableEmployeesResponse, LowOccupancyResponse,
-                            FreepoolCount, EmployeeDirectoryResponse, DeploymentFilter, AIRequest, User, UserResponse)
+                            FreepoolCount, EmployeeDirectoryResponse, DeploymentFilter, AIRequest, User, UserResponse, ProjectRequirements)
 from .endpoints import health
 from ..celery.tasks import rebuild_embedding_cache
 from ..websocket.websocket import ws_manager
@@ -21,6 +21,7 @@ from ..services.ai_analytics import AiAnalytics
 from ..services.cache_manager import cache_manager
 from ..auth.security import Authentication
 from ..auth.auth import Token
+from ..services.project_requirements_service import ProjectRequirementSuggestion
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends
 from jose import JWTError, ExpiredSignatureError
@@ -39,6 +40,7 @@ broker = RedisMessageBroker()
 available_employees_service = AvailableEmployeesService()
 low_occupancy_service = LowOccupancyService()
 ai_analytics = AiAnalytics()
+project_suggestion = ProjectRequirementSuggestion()
 user_auth = Authentication()
 user_token = Token()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
@@ -575,6 +577,90 @@ async def generate_ai_widgets(request: AIRequest, current_user: dict = Depends(g
     try:
         logger.info(f"🔍 /ai-analytics API called with prompt: '{request.prompt}\n {request.chartType}'")
         result = await ai_analytics.ai_analytics_service(request)
+        return result
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@api_router.get("/projects", status_code=200)
+async def get_all_projects(current_user: dict = Depends(get_current_user)):
+    try:
+        result = await dashboard_service._get_all_projects()
+        return result
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+
+    
+@api_router.post("/project_requirements")
+async def add_new_project_requirements(request: ProjectRequirements, current_user: dict = Depends(get_current_user)):
+    try:
+        result = await project_suggestion.add_project_requirement(request)
+        return result
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.get('/project_requirements', status_code=200)
+async def get_all_project_requirement(current_user: dict = Depends(get_current_user)):
+    try:
+        result = await project_suggestion._get_all_project_requirements()
+        return result
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@api_router.get('/projects/{project_name}/project_requirements', status_code=200)
+async def get_requirements_by_project(project_name: str, current_user: dict = Depends(get_current_user)):
+    try:
+        result = await project_suggestion._get_requirements_by_project_name(project_name)
+        return result
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@api_router.get('/project_requirements/{id}', status_code=200)
+async def get_project_requirement_by_id(id: int ,current_user: dict = Depends(get_current_user)):
+    try:
+        result = await project_suggestion._get_requirement_by_id(id)
+        return result
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.put('/project_requirements/{id}', status_code=200)
+async def update_project_requirement(id: int, update_data: ProjectRequirements, current_user: dict = Depends(get_current_user)):
+    try:
+        result = await project_suggestion._update_project_requirement(id, update_data)
+        return result
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@api_router.delete('/project_requirements/{id}', status_code=200)
+async def delete_project_requirement(id: int, current_user: dict = Depends(get_current_user)):
+    try:
+        result = await project_suggestion._delete_project_requirement(id)
+        return result
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api_router.get("/project_requirement_suggestion", status_code=200)
+async def project_requirement_suggestion(project_requirement_id = Query(default=None), current_user: dict = Depends(get_current_user)):
+    try:
+        result = await project_suggestion.process_requirement_suggestion(project_requirement_id=project_requirement_id)
+        return result
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api_router.get("/suggested_requirements", status_code=200)
+async def get_suggested_requirements(current_user: dict = Depends(get_current_user)):
+    try:
+        result = await project_suggestion._get_all_project_suggestions()
         return result
     except Exception as e:
         logger.error(str(e))

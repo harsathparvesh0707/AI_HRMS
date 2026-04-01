@@ -2151,7 +2151,6 @@ EMPLOYEES:
         )
 
         logger.info(f"⚡ Running LLM PDP ranking for {len(employees)} candidates...")
-        logger.info(f"\n{profiles_text}\n")
 
         prompt = f"""
 You are an expert HR evaluator performing PURE reasoning-style ranking using a PDP
@@ -2310,7 +2309,6 @@ EMPLOYEES:
         # Simple parsing for format: emp_id|tier|score|[criteria]|reasoning
         for line in clean.splitlines():
             line = line.strip()
-            logger.info(line)
             if not line or "|" not in line:
                 continue
                 

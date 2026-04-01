@@ -112,6 +112,24 @@ def init_database():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
             """))
 
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS project_requirements (
+                id SERIAL PRIMARY KEY,
+                project_name VARCHAR(50) REFERENCES projects(project_name),
+                requirements TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+            """))
+
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS project_requirement_suggestions (
+                id SERIAL PRIMARY KEY,
+                project_requirement_id INTEGER REFERENCES project_requirements(id),
+                suggestion TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+            """))
+
             logger.info("📈 Creating performance indexes...")
 
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))

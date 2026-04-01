@@ -3065,6 +3065,18 @@ class HybridSearchEngine:
             if deployment:
                 conditions.append("ep.deployment ILIKE :dep")
                 params["dep"] = f"%{deployment}%"
+            exp_sql = """
+                (
+                    COALESCE((regexp_match(e.total_exp, '(\\d+)Y'))[1], '0')::int +
+                    COALESCE((regexp_match(e.total_exp, '(\\d+)M'))[1], '0')::int / 12.0
+                )
+            """
+            if experience_min is not None:
+                conditions.append(f"{exp_sql} >= :exp_min")
+                params["exp_min"] = experience_min
+            if experience_max is not None:
+                conditions.append(f"{exp_sql} < :exp_max")
+                params["exp_max"] = experience_max
             if project:
                 conditions.append("(p.project_name ILIKE :proj OR p.customer ILIKE :proj OR p.project_department ILIKE :proj)")
                 params["proj"] = f"%{project}%"
@@ -3140,14 +3152,6 @@ class HybridSearchEngine:
                 result = session.execute(text(base_query), params)
                 for row in result:
                     emp = dict(row._mapping)
-                    if experience_min:
-                        exp = self._parse_experience_years(emp.get("total_exp", "")) or 0
-                        if exp < experience_min:
-                            continue
-                    if experience_max:
-                        exp = self._parse_experience_years(emp.get("total_exp", "")) or 0
-                        if exp > experience_max:
-                            continue
                     emp["selection_reason"] = self._generate_selection_reason(emp, parsed_query)
                     sql_results.append({
                         "employee_data": emp,

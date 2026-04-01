@@ -54,6 +54,8 @@ class DatabaseManager:
         """Clear all existing data"""
         try:
             with get_db_session() as session:
+                session.execute(text("DELETE FROM project_requirement_suggestions"))
+                session.execute(text("DELETE FROM project_requirements"))
                 session.execute(text("DELETE FROM employee_projects"))
                 session.execute(text("DELETE FROM projects"))
                 session.execute(text("DELETE FROM employees"))
@@ -571,23 +573,34 @@ class UploadService:
                     raise ValueError(f"Employee {employee_id} not found")
                 
                 # Parse existing and new skills
-                existing_skills = current_row.skill_set or ''
-                new_skills = skills_data.get('skills', [])
+                # existing_skills = current_row.skill_set or ''
+                # new_skills = skills_data.get('skills', [])
                 
-                # Combine skills
-                if existing_skills:
-                    existing_skills_list = [s.strip() for s in existing_skills.split(',') if s.strip()]
-                else:
-                    existing_skills_list = []
+                # # Combine skills
+                # if existing_skills:
+                #     existing_skills_list = [s.strip() for s in existing_skills.split(',') if s.strip()]
+                # else:
+                #     existing_skills_list = []
                 
-                # Add new skills that don't already exist (case-insensitive)
-                existing_lower = [s.lower() for s in existing_skills_list]
-                for skill in new_skills:
-                    if skill.strip() and skill.strip().lower() not in existing_lower:
-                        existing_skills_list.append(skill.strip())
+                # # Add new skills that don't already exist (case-insensitive)
+                # existing_lower = [s.lower() for s in existing_skills_list]
+                # for skill in new_skills:
+                #     if skill.strip() and skill.strip().lower() not in existing_lower:
+                #         existing_skills_list.append(skill.strip())
+
                 
                 # Update database
-                updated_skill_set = ', '.join(existing_skills_list)
+                skills_list = skills_data.get('skills', [])
+                # Clean + normalize
+                cleaned_skills = [
+                    skill.strip()
+                    for skill in skills_list
+                    if skill and skill.strip()
+                ]
+
+                # Convert to comma-separated string
+                updated_skill_set = ", ".join(cleaned_skills)
+                logger.info(updated_skill_set)
                 session.execute(
                     text("UPDATE employees SET skill_set = :skill_set WHERE employee_id = :employee_id"),
                     {"skill_set": updated_skill_set, "employee_id": employee_id}
@@ -595,7 +608,7 @@ class UploadService:
                 
                 return {
                     "status": "success", 
-                    "message": f"Added {len(new_skills)} skills successfully",
+                    "message": f"Updated skills successfully",
                     "updated_skills": updated_skill_set
                 }
                 

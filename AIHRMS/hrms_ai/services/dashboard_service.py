@@ -208,3 +208,14 @@ class DashboardService:
         except Exception as e:
             logger.error(f"Failed to fetch data from DB: {str(e)}")
             raise
+
+    async def _get_all_projects(self):
+        try:
+            with get_db_session() as session:
+                rows = session.execute(text("SELECT * FROM projects ORDER BY project_name")).mappings().all()
+            response = [dict(row) for row in rows]
+            return {'status': 200, 'response': response}
+        except Exception as e:
+            logger.error(f"Error while fetching data from Projects: {str(e)}")
+            raise
+        

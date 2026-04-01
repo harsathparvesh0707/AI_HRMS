@@ -5,6 +5,8 @@ import logging
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from .celery.scheduler import start_scheduler
+from .celery.celery_app import celery_app
 
 # Initialize logging service first
 try:
@@ -129,6 +131,10 @@ async def startup_event():
             logger.info("⚠️ Compression cache will be built on first search request")
         
         logger.info("🎉 AI HRMS Backend started successfully!")
+        try:
+            start_scheduler()
+        except Exception as e:
+            logger.error("Error while invoking scheduler")
         
     except Exception as e:
         logger.error(f"❌ Startup failed: {e}")
@@ -139,7 +145,11 @@ async def startup_event():
 async def shutdown_event():
     """Cleanup on shutdown"""
     logger.info("👋 Shutting down AI HRMS Backend...")
-
+    try:
+        celery_app.control.purge()
+        logger.info("Cleared all pending Celery tasks")
+    except Exception as e:
+        logger.error(f"Failed to purge Celery queue: {e}")
 
 if __name__ == "__main__":
     uvicorn.run(

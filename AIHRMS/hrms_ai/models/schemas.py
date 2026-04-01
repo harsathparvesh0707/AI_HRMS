@@ -211,3 +211,8 @@ class UserResponse(BaseModel):
     username: str
     is_active: bool
     created_at: Optional[str]
+
+class ProjectRequirements(BaseModel):
+    project_name: str
+    requirements: str
+    
