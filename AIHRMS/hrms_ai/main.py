@@ -30,7 +30,10 @@ app = FastAPI(
     title="AI HRMS Backend - Enhanced Architecture",
     description="Intelligent Human Resource Management System with clean architecture and improved query processing",
     version="2.0.0",
-    debug=settings.debug
+    debug=settings.debug,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
 )
 
 # Add CORS middleware
