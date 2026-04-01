@@ -21,10 +21,12 @@ class DashboardService:
                 rows = db.execute(
                     text("""
                         SELECT
-                            ep.project_name,
+                            p.project_name,
                             COUNT(DISTINCT ep.employee_id) AS employee_count
-                        FROM employee_projects ep
-                        GROUP BY ep.project_name
+                        FROM projects p
+                        LEFT JOIN employee_projects ep
+                            ON p.project_name = ep.project_name
+                        GROUP BY p.project_name
                         ORDER BY employee_count DESC
                     """)
                 ).mappings().all()
