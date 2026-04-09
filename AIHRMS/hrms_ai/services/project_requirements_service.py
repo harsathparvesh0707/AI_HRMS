@@ -174,7 +174,13 @@ class ProjectRequirementSuggestion:
     async def _get_all_project_requirements(self, project_requirement_id: int = None):
         try:
             with get_db_session() as session:
-                query = "SELECT * FROM project_requirements"
+                query = """
+                SELECT 
+                    pr.*, 
+                    p.customer
+                FROM project_requirements pr
+                LEFT JOIN projects p 
+                    ON pr.project_name = p.project_name"""
                 params = {}
                 if project_requirement_id:
                     query += " WHERE id = :id"
@@ -226,9 +232,10 @@ class ProjectRequirementSuggestion:
             logger.error(f"Error while saving suggestion in DB: {e}")
             raise
 
-    async def _get_all_project_suggestions(self):
+    async def _get_all_project_suggestions(self, project_requirement_id = None):
         with get_db_session() as session:
-            result = session.execute(text("""
+            params = {}
+            query = """
                 SELECT 
                     pr.project_name,
                     pr.requirements,
@@ -236,8 +243,12 @@ class ProjectRequirementSuggestion:
                 FROM project_requirements pr
                 INNER JOIN project_requirement_suggestions prs
                     ON pr.id = prs.project_requirement_id
-                ORDER BY pr.created_at DESC;
-            """)).mappings().all()
+            """
+            if project_requirement_id is not None:
+                query += " WHERE pr.id = :id"
+                params["id"] = project_requirement_id
+            query += " ORDER BY pr.created_at DESC;"
+            result = session.execute(text(query), params).mappings().all()
         return {'status': 200, 'response': result}
     
     async def _get_requirement_by_id(self, id: int):
@@ -265,6 +276,7 @@ class ProjectRequirementSuggestion:
         if existing is None:
             return {'status_code': 400, 'response': 'No Requirement Found for this Id'}
         with get_db_session() as session:
+            session.execute(text("DELETE FROM project_requirement_suggestions WHERE project_requirement_id = :id"), {'id': id})
             session.execute(text("DELETE FROM project_requirements WHERE id = :id"), {'id': id})
         return {'status_code': 200, 'response': 'Requirement Deleted Successfully'}
     

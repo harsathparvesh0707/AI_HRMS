@@ -76,6 +76,7 @@ def init_database():
                     project_category VARCHAR(255),
                     project_committed_end_date DATE,
                     project_extended_end_date DATE,
+                    project_description TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
@@ -128,6 +129,16 @@ def init_database():
                 suggestion TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+            """))
+
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS freepool_suggestions (
+                id SERIAL PRIMARY KEY,
+                freepool_count INTEGER NOT NULL DEFAULT 0,
+                tech_groups_in_freepool INTEGER NOT NULL DEFAULT 0,
+                project_suggestions JSONB NOT NULL DEFAULT '[]',
+                upskill_suggestions JSONB NOT NULL DEFAULT '[]',
+                generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
             """))
 
             logger.info("📈 Creating performance indexes...")

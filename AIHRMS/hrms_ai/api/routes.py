@@ -22,6 +22,7 @@ from ..services.cache_manager import cache_manager
 from ..auth.security import Authentication
 from ..auth.auth import Token
 from ..services.project_requirements_service import ProjectRequirementSuggestion
+from ..services.freepool_suggestion_service import FreepoolProjectSuggestionService
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends
 from jose import JWTError, ExpiredSignatureError
@@ -41,6 +42,7 @@ available_employees_service = AvailableEmployeesService()
 low_occupancy_service = LowOccupancyService()
 ai_analytics = AiAnalytics()
 project_suggestion = ProjectRequirementSuggestion()
+freepool_suggestion_service = FreepoolProjectSuggestionService()
 user_auth = Authentication()
 user_token = Token()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
@@ -647,7 +649,7 @@ async def delete_project_requirement(id: int, current_user: dict = Depends(get_c
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@api_router.get("/project_requirement_suggestion", status_code=200)
+@api_router.get("/project_requirement_suggestion", status_code=200, tags=["suggestions"])
 async def project_requirement_suggestion(project_requirement_id = Query(default=None), current_user: dict = Depends(get_current_user)):
     try:
         result = await project_suggestion.process_requirement_suggestion(project_requirement_id=project_requirement_id)
@@ -657,14 +659,32 @@ async def project_requirement_suggestion(project_requirement_id = Query(default=
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@api_router.get("/suggested_requirements", status_code=200)
-async def get_suggested_requirements(current_user: dict = Depends(get_current_user)):
+@api_router.get("/suggested_requirements", status_code=200, tags=["suggestions"])
+async def get_suggested_requirements(project_requirement_id: int = Query(default=None), current_user: dict = Depends(get_current_user)):
     try:
-        result = await project_suggestion._get_all_project_suggestions()
+        result = await project_suggestion._get_all_project_suggestions(project_requirement_id = project_requirement_id)
         return result
     except Exception as e:
         logger.error(str(e))
         raise HTTPException(status_code=400, detail=str(e))
+    
+@api_router.get("/freepool_project_suggestions", tags=["suggestions"], status_code=200)
+async def get_freepool_project_suggestions(current_user: dict = Depends(get_current_user)):
+    try:
+        await freepool_suggestion_service.get_suggestions()
+        return
+    except Exception as e:
+        logger.error(f"Error generating freepool project suggestions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/freepool_suggestions", status_code=200, tags=["suggestions", "dashboard"])
+async def get_freepool_sugestions(current_user: dict = Depends(get_current_user)):
+    try:
+        result = await freepool_suggestion_service.get_suggestions_from_db()
+        return result
+    except Exception as e:
+        logger.error(f"Error while fetching freepool suggestions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
     
 @api_router.post("/register")

@@ -23,13 +23,27 @@ async def run_project_suggestion():
     except Exception as e:
         logger.error(f"❌ Task failed: {str(e)}")
 
+
+async def run_freepool_suggestion():
+    from ..services.freepool_suggestion_service import FreepoolProjectSuggestionService
+
+    try:
+        logger.info("🚀 Running scheduled freepool employee suggestion task")
+
+        service = FreepoolProjectSuggestionService()
+        await service.get_suggestions()
+        logger.info("✅ Freepool task completed successfully")
+    except Exception as e:
+        logger.error(f"❌ Task Failed {str(e)}")
+
+
 def job_wrapper():
     """Sync wrapper for async function"""
     try:
         asyncio.run(run_project_suggestion())
+        asyncio.run(run_freepool_suggestion())
     except Exception as e:
         logger.error(f"❌ Task failed: {str(e)}")
-
 
 
 def start_scheduler():
