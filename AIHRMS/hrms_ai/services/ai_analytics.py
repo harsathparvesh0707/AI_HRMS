@@ -17,7 +17,7 @@ class AiAnalytics:
 
     SCHEMA = """
         Database Schema:
-        
+
         Table: employees
         - employee_id (varchar, primary key)
         - display_name (varchar)
@@ -31,51 +31,140 @@ class AiAnalytics:
         - skill_set (varchar)
         - committed_relieving_date (date)
 
+        --------------------------------------------------
+
         Table: employee_projects
         - id (integer, primary key)
         - employee_id (varchar, foreign key -> employees.employee_id)
-        - project_name (varchar)
-        - project_department (varchar)
-        - customer (varchar)
+        - project_name (varchar, foreign key -> projects.project_name)
         - project_joined_date (date)
+        - start_date (date)
+        - end_date (date)
+        - role (varchar)
+        - deployment (varchar)
+        - committed_relieving_date (date)
+        - extended_relieving_date (date)
+        - occupancy (integer)
+        - created_by_employee_id (varchar)
+        - created_by_display_name (varchar)
+        - created_at (timestamp)
+        - updated_at (timestamp)
+
+        --------------------------------------------------
+
+        Table: projects
+        - project_name (varchar, primary key)
+        - customer (varchar)
+        - project_department (varchar)
         - project_industry (varchar)
         - project_status (varchar)
-        - occupancy (integer)
+        - delivery_owner_emp_id (varchar)
+        - delivery_owner (varchar)
+        - pm (varchar)
+        - project_category (varchar)
         - project_committed_end_date (date)
-        - deployment (varchar)
-        """
+        - project_extended_end_date (date)
+        - project_description (text)
+        - created_at (timestamp)
+        - updated_at (timestamp)
+
+        --------------------------------------------------
+
+        Table: project_requirements
+        - id (integer, primary key)
+        - project_name (varchar, foreign key -> projects.project_name)
+        - requirements (text)
+        - created_at (timestamp)
+        - updated_at (timestamp)
+    """
+
+    # BUSINESS_RULES = """
+    #     Business Logic Rules:
+
+    #     1. Projects with project_name containing 'FREE' are NOT real projects.
+    #     - They represent the employee's free (unallocated) percentage.
+    #     - occupancy in FREE project = percentage of free capacity.
+    #     - If FREE occupancy = 100 implies employee is fully free.
+
+    #     2. Projects with project_name containing 'TRNG' represent training.
+    #     - These are NOT billable projects.
+    #     - They should not be counted as real project allocation unless explicitly requested.
+    #     Do NOT assume specific designation words like "developer" exist unless present in data.
+
+    #     3. If user refers to a skill (e.g., React, Python, Java), search in skill_set.
+    #     4. If user refers to team/department (e.g., Backend, Frontend, Cloud), search in tech_group.
+    #     5. If user refers to job title (Engineer, Manager, Director, Lead), search in designation.
+    #     6. skill_set column is a comma-separated list of technical skills.
+    #     7. employees.committed_relieving_date is the employee relieving date from project.
+    #     8. employees.project_joined_date is the date employee joined the project.
+    #     9. employee_projects.project_committed_end_date is the project end date.
+    #     8. Do NOT filter designation using "developer".
+    #     9. rm_id references employees.employee_id.
+    #     10. Any token matching pattern ^[A-Za-z0-9]{4}_[A-Za-z0-9]{4}$ could be a project_name but still use LIKE '%' for filtering.
+    #     11. total_exp and vvdn_exp format: "XY ZM" (e.g., 2Y 10M).
+    #         For visualization or comparison:
+    #         - Convert experience to total months:
+    #         (years * 12 + months)
+    #         - Use numeric conversion for bar charts.
+    #     12. When user refers to "internal budgeted projects, Free, Trianee, BU Common, RandD Internal Budgeted, Customer Facing, R and D Shadow, Billable, etc..", filter using deployment ILIKE '%Internal Budgeted%'
+    #         - Do NOT infer internal/billable using project_name or customer unless explicitly requested.
+    #     """
 
     BUSINESS_RULES = """
         Business Logic Rules:
 
         1. Projects with project_name containing 'FREE' are NOT real projects.
-        - They represent the employee's free (unallocated) percentage.
-        - occupancy in FREE project = percentage of free capacity.
-        - If FREE occupancy = 100 implies employee is fully free.
+        - They represent employee free capacity.
+        - occupancy = free percentage.
 
         2. Projects with project_name containing 'TRNG' represent training.
-        - These are NOT billable projects.
-        - They should not be counted as real project allocation unless explicitly requested.
-        Do NOT assume specific designation words like "developer" exist unless present in data.
+        - Not billable.
 
-        3. If user refers to a skill (e.g., React, Python, Java), search in skill_set.
-        4. If user refers to team/department (e.g., Backend, Frontend, Cloud), search in tech_group.
-        5. If user refers to job title (Engineer, Manager, Director, Lead), search in designation.
-        6. skill_set column is a comma-separated list of technical skills.
-        7. employees.committed_relieving_date is the employee relieving date from project.
-        8. employees.project_joined_date is the date employee joined the project.
-        9. employee_projects.project_committed_end_date is the project end date.
-        8. Do NOT filter designation using "developer".
-        9. rm_id references employees.employee_id.
-        10. Any token matching pattern ^[A-Za-z0-9]{4}_[A-Za-z0-9]{4}$ could be a project_name but still use LIKE '%' for filtering.
-        11. total_exp and vvdn_exp format: "XY ZM" (e.g., 2Y 10M).
-            For visualization or comparison:
-            - Convert experience to total months:
-            (years * 12 + months)
-            - Use numeric conversion for bar charts.
-        12. When user refers to "internal budgeted projects, Free, Trianee, BU Common, RandD Internal Budgeted, Customer Facing, R and D Shadow, Billable, etc..", filter using deployment ILIKE '%Internal Budgeted%'
-            - Do NOT infer internal/billable using project_name or customer unless explicitly requested.
-        """
+        3. Project-related attributes like:
+        - customer
+        - project_department
+        - project_industry
+        - project_status
+        MUST be fetched from the `projects` table using JOIN.
+
+        4. Always JOIN when project metadata is needed:
+        employee_projects.project_name = projects.project_name
+
+        5. If user refers to:
+        - skill → use employees.skill_set
+        - department/team → use employees.tech_group
+        - designation → use employees.designation
+
+        6. skill_set is comma-separated text → use ILIKE '%skill%'
+
+        7. Dates meaning:
+        - employee_projects.project_joined_date → employee allocation start
+        - employee_projects.start_date / end_date → actual duration
+        - employee_projects.committed_relieving_date → planned release
+        - employee_projects.extended_relieving_date → updated release
+        - projects.project_committed_end_date → project deadline
+
+        8. rm_id references employees.employee_id
+
+        9. occupancy:
+        - Represents allocation percentage per project
+        - SUM(occupancy) can exceed 100 if bad data → do not assume capped
+
+        10. Experience fields:
+        total_exp, vvdn_exp format = "XY ZM"
+        Convert to months:
+        (substring(total_exp from '\\d+')::int * 12 +
+            substring(total_exp from '\\d+M')::int)
+
+        11. Deployment filtering:
+        Use employee_projects.deployment ILIKE '%value%'
+
+        12. NEVER assume columns exist in employee_projects if not defined.
+
+        13. Always prefer:
+        - COUNT(DISTINCT employee_id) for employee count
+        - Proper JOIN instead of duplication
+    """
 
     def __init__(self):
         self.hybrid_engine = HybridSearchEngine(gemini_api_key=settings.gemini_api_key)
