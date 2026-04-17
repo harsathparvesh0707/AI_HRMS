@@ -29,7 +29,6 @@ class AiAnalytics:
         - rm_id (varchar)
         - designation (varchar)
         - skill_set (varchar)
-        - committed_relieving_date (date)
 
         --------------------------------------------------
 
@@ -78,37 +77,37 @@ class AiAnalytics:
         - updated_at (timestamp)
     """
 
-    BUSINESS_RULES1 = """
-        Business Logic Rules:
+    # BUSINESS_RULES1 = """
+    #     Business Logic Rules:
 
-        1. Projects with project_name containing 'FREE' are NOT real projects.
-        - They represent the employee's free (unallocated) percentage.
-        - occupancy in FREE project = percentage of free capacity.
-        - If FREE occupancy = 100 implies employee is fully free.
+    #     1. Projects with project_name containing 'FREE' are NOT real projects.
+    #     - They represent the employee's free (unallocated) percentage.
+    #     - occupancy in FREE project = percentage of free capacity.
+    #     - If FREE occupancy = 100 implies employee is fully free.
 
-        2. Projects with project_name containing 'TRNG' represent training.
-        - These are NOT billable projects.
-        - They should not be counted as real project allocation unless explicitly requested.
-        Do NOT assume specific designation words like "developer" exist unless present in data.
+    #     2. Projects with project_name containing 'TRNG' represent training.
+    #     - These are NOT billable projects.
+    #     - They should not be counted as real project allocation unless explicitly requested.
+    #     Do NOT assume specific designation words like "developer" exist unless present in data.
 
-        3. If user refers to a skill (e.g., React, Python, Java), search in skill_set.
-        4. If user refers to team/department (e.g., Backend, Frontend, Cloud), search in tech_group.
-        5. If user refers to job title (Engineer, Manager, Director, Lead), search in designation.
-        6. skill_set column is a comma-separated list of technical skills.
-        7. employees.committed_relieving_date is the employee relieving date from project.
-        8. employees.project_joined_date is the date employee joined the project.
-        9. employee_projects.project_committed_end_date is the project end date.
-        8. Do NOT filter designation using "developer".
-        9. rm_id references employees.employee_id.
-        10. Any token matching pattern ^[A-Za-z0-9]{4}_[A-Za-z0-9]{4}$ could be a project_name but still use LIKE '%' for filtering.
-        11. total_exp and vvdn_exp format: "XY ZM" (e.g., 2Y 10M).
-            For visualization or comparison:
-            - Convert experience to total months:
-            (years * 12 + months)
-            - Use numeric conversion for bar charts.
-        12. When user refers to "internal budgeted projects, Free, Trianee, BU Common, RandD Internal Budgeted, Customer Facing, R and D Shadow, Billable, etc..", filter using deployment ILIKE '%Internal Budgeted%'
-            - Do NOT infer internal/billable using project_name or customer unless explicitly requested.
-        """
+    #     3. If user refers to a skill (e.g., React, Python, Java), search in skill_set.
+    #     4. If user refers to team/department (e.g., Backend, Frontend, Cloud), search in tech_group.
+    #     5. If user refers to job title (Engineer, Manager, Director, Lead), search in designation.
+    #     6. skill_set column is a comma-separated list of technical skills.
+    #     7. employees.committed_relieving_date is the employee relieving date from project.
+    #     8. employees.project_joined_date is the date employee joined the project.
+    #     9. employee_projects.project_committed_end_date is the project end date.
+    #     8. Do NOT filter designation using "developer".
+    #     9. rm_id references employees.employee_id.
+    #     10. Any token matching pattern ^[A-Za-z0-9]{4}_[A-Za-z0-9]{4}$ could be a project_name but still use LIKE '%' for filtering.
+    #     11. total_exp and vvdn_exp format: "XY ZM" (e.g., 2Y 10M).
+    #         For visualization or comparison:
+    #         - Convert experience to total months:
+    #         (years * 12 + months)
+    #         - Use numeric conversion for bar charts.
+    #     12. When user refers to "internal budgeted projects, Free, Trianee, BU Common, RandD Internal Budgeted, Customer Facing, R and D Shadow, Billable, etc..", filter using deployment ILIKE '%Internal Budgeted%'
+    #         - Do NOT infer internal/billable using project_name or customer unless explicitly requested.
+    #     """
 
     BUSINESS_RULES = """
         Business Logic Rules:
