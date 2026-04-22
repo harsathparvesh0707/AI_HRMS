@@ -584,6 +584,14 @@ async def generate_ai_widgets(request: AIRequest, current_user: dict = Depends(g
         logger.error(str(e))
         raise HTTPException(status_code=400, detail=str(e))
     
+@api_router.post("/ai-stats")
+async def generate_ai_stats(request: AIRequest, current_user: dict = Depends(get_current_user)):
+    try:
+        result = await ai_analytics.ai_stats_service(request)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
 @api_router.get("/projects", status_code=200)
 async def get_all_projects(current_user: dict = Depends(get_current_user)):
     try:
