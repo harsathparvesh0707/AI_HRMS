@@ -61,15 +61,27 @@ class NotificationDBService:
                 logger.error(f"Error marking notification as read: {e}")
                 raise HTTPException(status_code=404, detail=str(e))
             
-    async def delete_notification(self, notification_ids = None):
+    async def mark_as_unread(self, notification_ids):
         with get_db_session() as session:
             try:
-                if notification_ids:
-                    query = "DELETE FROM notifications WHERE id = ANY(:ids)"
-                    params = {"ids": notification_ids}
-                else:
-                    query = "DELETE FROM notifications"
-                    params = {}
+                query = "UPDATE notifications SET is_read = FALSE WHERE id = ANY(:ids)"
+                params = {"ids": notification_ids}
+                result = session.execute(text(query), params)
+                session.commit()
+                if notification_ids and result.rowcount == 0:
+                    raise HTTPException(status_code=404, detail="Notification not found")
+                logger.info(f"Notification marked as unread")
+                return {"status": 200, "message": "Notification marked as unread"}
+            except Exception as e:
+                logger.error(f"Error marking notification as unread: {e}")
+                raise HTTPException(status_code=404, detail=str(e))
+                    
+            
+    async def delete_notification(self, notification_ids):
+        with get_db_session() as session:
+            try:
+                query = "DELETE FROM notifications WHERE id = ANY(:ids)"
+                params = {"ids": notification_ids}
                 result = session.execute(text(query), params)
                 session.commit()
                 if notification_ids and result.rowcount == 0:

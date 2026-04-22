@@ -727,9 +727,19 @@ async def mark_as_read(notification_ids: NotificationIdsRequest = None, current_
     except Exception as e:
         logger.error(f"Error while marking notification as read: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+    
+@api_router.patch("/notification/mark_as_unread", status_code=200, tags=["notification"])
+async def mark_as_unread(notification_ids: NotificationIdsRequest, current_user: dict = Depends(get_current_user)):
+    try:
+        result = await notification_service.mark_as_unread(notification_ids=notification_ids.ids if notification_ids is not None else None)
+        logger.info("Notification marked as unread")
+        return result
+    except Exception as e:
+        logger.error(f"Error while marking notification as unread: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 @api_router.delete("/notification/delete", status_code=200, tags=["notification"])
-async def delete_notification(notification_ids: NotificationIdsRequest = None, current_user: dict = Depends(get_current_user)):
+async def delete_notification(notification_ids: NotificationIdsRequest, current_user: dict = Depends(get_current_user)):
     try:
         result = await notification_service.delete_notification(notification_ids=notification_ids.ids if notification_ids is not None else None)
         logger.info("Notification deleted")
