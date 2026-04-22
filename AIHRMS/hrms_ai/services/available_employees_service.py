@@ -121,7 +121,7 @@ class AvailableEmployeesService:
 
     
 
-    def find_available_employees(self, months_threshold: int):
+    async def find_available_employees(self, months_threshold: int):
         raw_rows = self.project_repo.get_employees_with_projects()
 
         if not raw_rows:

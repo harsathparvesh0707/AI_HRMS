@@ -160,7 +160,7 @@ class LowOccupancyService:
 
 
 
-    def find_long_term_low_occupancy_employees(self, occupancy_threshold: int, long_term_extension_months: int):
+    async def find_long_term_low_occupancy_employees(self, occupancy_threshold: int, long_term_extension_months: int):
         raw_rows = self.project_repo.get_employees_with_projects()
         if not raw_rows:
             return {
