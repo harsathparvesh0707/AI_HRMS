@@ -216,3 +216,5 @@ class ProjectRequirements(BaseModel):
     project_name: str
     requirements: str
     
+class NotificationIdsRequest(BaseModel):
+    ids: Optional[List[int]] = None

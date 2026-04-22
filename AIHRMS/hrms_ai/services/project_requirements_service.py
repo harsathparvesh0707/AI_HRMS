@@ -2,6 +2,8 @@ from ..core.database import get_db_session
 from sqlalchemy import text
 from fastapi.encoders import jsonable_encoder
 from ..services.ai_search_service import AISearchService
+from ..services.notification_service import NotificationDBService
+from ..services.websocket_service import WebSocketNotifier
 import logging, asyncio, json
 
 
@@ -11,7 +13,8 @@ search_service = AISearchService()
 
 class ProjectRequirementSuggestion:
     def __init__(self):
-        pass
+        self.notification_service = NotificationDBService()
+        self.websocket_notifier = WebSocketNotifier()
 
     async def add_project_requirement(self, request):
         try:
@@ -163,12 +166,19 @@ class ProjectRequirementSuggestion:
                     'requirement': requirement_text,
                     'response': ranked_with_details
                 })
+            await self.notification_service.add_new_notification(
+                title="Project Requirement Suggestions Generated",
+                message=f"Suggestions have been generated for project requirements"
+            )
             if project_requirement_id is not None:
+                await self.websocket_notifier.send_notification(message_type="info", message="Project Requirement Suggestion Generated")
                 return {'status': 200, 'response': all_results}
             return
 
         except Exception as e:
             logger.error(f"Error while processing requirement suggestion API: {str(e)}")
+            if project_requirement_id is not None:
+                await self.websocket_notifier.send_notification(message_type="error", message=f"Project Requirement Suggestion Failed: {str(e)}")
             raise
 
     async def _get_all_project_requirements(self, project_requirement_id: int = None):

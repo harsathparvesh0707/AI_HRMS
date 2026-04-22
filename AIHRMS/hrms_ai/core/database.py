@@ -141,6 +141,15 @@ def init_database():
                 generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
             """))
 
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS notifications (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                message TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+            """))
+
             logger.info("📈 Creating performance indexes...")
 
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))

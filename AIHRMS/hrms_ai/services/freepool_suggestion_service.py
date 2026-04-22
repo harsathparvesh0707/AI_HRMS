@@ -6,6 +6,8 @@ from collections import defaultdict
 from typing import Any, Dict, List, Tuple
 
 from ..repositories.project_repository import ProjectRepository
+from ..services.notification_service import NotificationDBService
+from ..services.websocket_service import WebSocketNotifier
 from ..core.database import get_db_session
 from ..services.llm_service import LLMService
 from sqlalchemy import text
@@ -236,6 +238,8 @@ class FreepoolProjectSuggestionService:
     def __init__(self):
         self.project_repo = ProjectRepository()
         self.llm = LLMService()
+        self.notification_service = NotificationDBService()
+        self.websocket_notifier = WebSocketNotifier()
 
     # ── 1. Fetch freepool employees ────────────────────────────────────────
     def _get_freepool_employees(self) -> List[Dict[str, Any]]:
@@ -596,10 +600,32 @@ Respond ONLY as a JSON object keyed by TokenID, no markdown:
 
             # Persist — always exactly one row
             self._save_to_db(result)
+            if project_suggestions:
+                await self.websocket_notifier.send_notification(
+                    message_type="error",
+                    message="Project Suggestion Generated"
+                )
+                await self.notification_service.add_new_notification(
+                    title="New Project Suggestions Available",
+                    message=f"AI has generated {len(project_suggestions)} project suggestions. Check the Freepool tab."
+                )
+            if upskill_suggestions:
+                await self.websocket_notifier.send_notification(
+                    message_type="info",
+                    message="Upskill Suggestion Generated"
+                )
+                await self.notification_service.add_new_notification(
+                    title="New Upskill Suggestions Available",
+                    message=f"AI has generated upskill suggestions for {len(upskill_suggestions)} employees. Check the Freepool tab."
+                )
             logger.info("Freepool suggestions complete")
             return
         except Exception as e:
             logger.error(f"Error in get_suggestion: {e}")
+            await self.websocket_notifier.send_notification(
+                message_type="error",
+                message=f"Project and Upskill suggestion Failed: {str(e)}"
+            )
             raise
 
     async def get_suggestions_from_db(self):

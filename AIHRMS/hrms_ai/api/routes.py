@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, WebSocket, WebSocketDisconnect, Query
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 import logging
 from ..services.ai_search_service import AISearchService
 
@@ -10,7 +10,7 @@ from ..services.dashboard_service import DashboardService
 from ..models.schemas import (ChatRequest, UploadResponse,
                             SkillsUpdateRequest, ProjectsUpdateRequest, ProfileUpdateRequest, EmployeeResponse, ProjectsListResponse,
                             ProjectDistributionResponse, DepartmentDistributionResponse, AvailableEmployeesResponse, LowOccupancyResponse,
-                            FreepoolCount, EmployeeDirectoryResponse, DeploymentFilter, AIRequest, User, UserResponse, ProjectRequirements)
+                            FreepoolCount, EmployeeDirectoryResponse, DeploymentFilter, AIRequest, User, UserResponse, ProjectRequirements, NotificationIdsRequest)
 from .endpoints import health
 from ..celery.tasks import rebuild_embedding_cache
 from ..websocket.websocket import ws_manager
@@ -23,6 +23,8 @@ from ..auth.security import Authentication
 from ..auth.auth import Token
 from ..services.project_requirements_service import ProjectRequirementSuggestion
 from ..services.freepool_suggestion_service import FreepoolProjectSuggestionService
+from ..services.notification_service import NotificationDBService
+from ..services.websocket_service import WebSocketNotifier
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends
 from jose import JWTError, ExpiredSignatureError
@@ -43,6 +45,8 @@ low_occupancy_service = LowOccupancyService()
 ai_analytics = AiAnalytics()
 project_suggestion = ProjectRequirementSuggestion()
 freepool_suggestion_service = FreepoolProjectSuggestionService()
+notification_service = NotificationDBService()
+websocket_notifier = WebSocketNotifier()
 user_auth = Authentication()
 user_token = Token()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
@@ -92,16 +96,26 @@ async def upload_hrms_data(
     description: str = Form(""), current_user: dict = Depends(get_current_user)
 ) -> UploadResponse:
     """File Upload Endpoint"""
-    # Process file upload
-    result = await upload_service.process_file_upload(file, description)
-    keys = await cache_manager.keys("dashboard:*")
-    for key in keys:
-        await cache_manager.delete(key)
-    # Trigger cache rebuild in background for search optimization
-    # background_tasks.add_task(_post_upload_cache_rebuild)
-    rebuild_embedding_cache.delay()
-    
-    return result
+    try:
+        # Process file upload
+        result = await upload_service.process_file_upload(file, description)
+        await websocket_notifier.send_notification(message_type="info", message=f"Data Uploaded Succesfully")
+        await notification_service.add_new_notification(
+            title="Data Uploaded",
+            message=f"HRMS data uploaded successfully: {file.filename}",
+        )
+        keys = await cache_manager.keys("dashboard:*")
+        for key in keys:
+            await cache_manager.delete(key)
+        # Trigger cache rebuild in background for search optimization
+        # background_tasks.add_task(_post_upload_cache_rebuild)
+        rebuild_embedding_cache.delay()
+        
+        return result
+    except Exception as e:
+        logger.error(f"❌ File upload failed: {e}")
+        await websocket_notifier.send_notification(message_type="error", message=f"Data Upload Failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/stats", tags=["analytics"])
 async def get_system_stats() -> Dict[str, Any]:
@@ -539,7 +553,7 @@ async def find_available_employees(month_threshold: int = Query(3, ge=0), curren
         if not result:
             logger.info(f"Cache Not Found for key: {cache_key}")
             logger.info(f"🔍 Finding available employees with {month_threshold} months threshold")
-            result = available_employees_service.find_available_employees(months_threshold=month_threshold)
+            result = await available_employees_service.find_available_employees(months_threshold=month_threshold)
             await cache_manager.set(cache_key, result, 300)
         return result
         
@@ -552,7 +566,7 @@ async def find_available_employees(month_threshold: int = Query(3, ge=0), curren
 async def find_low_occupancy_employees(occupancy_threshold: int = Query(50, ge=0, lt=100), long_term_extension_months: int = Query(36, ge=0), current_user: dict = Depends(get_current_user)) -> LowOccupancyResponse:
     """Find low occupancy employees based on occupancy and months threshold"""
     try:
-        result = low_occupancy_service.find_long_term_low_occupancy_employees(occupancy_threshold=occupancy_threshold, long_term_extension_months=long_term_extension_months)
+        result = await low_occupancy_service.find_long_term_low_occupancy_employees(occupancy_threshold=occupancy_threshold, long_term_extension_months=long_term_extension_months)
         return result
 
     except Exception as e:
@@ -693,7 +707,36 @@ async def get_freepool_sugestions(current_user: dict = Depends(get_current_user)
     except Exception as e:
         logger.error(f"Error while fetching freepool suggestions: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+@api_router.get("/notification/get_all_notifications", status_code=200, tags=["notification]"])
+async def get_all_notifications(current_user: dict = Depends(get_current_user)):
+    try:
+        result = await notification_service.get_notifications()
+        logger.info(f"Total Notifications: {len(result)}")
+        return result
+    except Exception as e:
+        logger.error(f"Error while fetching notifications: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@api_router.patch("/notification/mark_as_read", status_code=200, tags=["notification"])
+async def mark_as_read(notification_ids: NotificationIdsRequest = None, current_user: dict = Depends(get_current_user)):
+    try:
+        result = await notification_service.mark_notification_as_read(notification_ids=notification_ids.ids if notification_ids is not None else None)
+        logger.info("Notification marked as read")
+        return result
+    except Exception as e:
+        logger.error(f"Error while marking notification as read: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
+@api_router.delete("/notification/delete", status_code=200, tags=["notification"])
+async def delete_notification(notification_ids: NotificationIdsRequest = None, current_user: dict = Depends(get_current_user)):
+    try:
+        result = await notification_service.delete_notification(notification_ids=notification_ids.ids if notification_ids is not None else None)
+        logger.info("Notification deleted")
+        return result
+    except Exception as e:
+        logger.error(f"Error while deleting notification: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
     
 @api_router.post("/register")
 async def user_registration(user: User):
