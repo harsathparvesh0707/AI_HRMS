@@ -99,11 +99,12 @@ async def upload_hrms_data(
     try:
         # Process file upload
         result = await upload_service.process_file_upload(file, description)
-        await websocket_notifier.send_notification(message_type="info", message=f"Data Uploaded Succesfully")
+        # await websocket_notifier.send_notification(message_type="info", message=f"Data Uploaded Succesfully")
         await notification_service.add_new_notification(
             title="Data Uploaded",
             message=f"HRMS data uploaded successfully: {file.filename}",
         )
+        await websocket_notifier.new_notification_notifier()
         keys = await cache_manager.keys("dashboard:*")
         for key in keys:
             await cache_manager.delete(key)
@@ -114,7 +115,7 @@ async def upload_hrms_data(
         return result
     except Exception as e:
         logger.error(f"❌ File upload failed: {e}")
-        await websocket_notifier.send_notification(message_type="error", message=f"Data Upload Failed: {str(e)}")
+        # await websocket_notifier.send_notification(message_type="error", message=f"Data Upload Failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/stats", tags=["analytics"])
@@ -748,6 +749,15 @@ async def delete_notification(notification_ids: NotificationIdsRequest, current_
         logger.error(f"Error while deleting notification: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     
+@api_router.get("/notification/count", status_code=200, tags=["notification"])
+async def get_count_of_unread_notifications(current_user: dict = Depends(get_current_user)):
+    try:
+        result = await notification_service.get_unread_notification_count()
+        return result
+    except Exception as e:
+        logger.error(f"Error while fetching unread notifications count: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    
 @api_router.post("/register")
 async def user_registration(user: User):
     try:
@@ -771,6 +781,19 @@ async def user_login(user: User):
 @api_router.websocket("/ws/notification")
 async def websocket_connection(websocket: WebSocket):
     logger.info("Connecting to Web Socket...")
+    token = websocket.query_params.get("token")
+    if token and token.startswith("Bearer "):
+        token = token.split(" ")[1]
+    if not token:
+        await websocket.close(code=1008)
+        return
+
+    try:
+        current_user = user_token._decode_access_token(token)
+    except Exception:
+        await websocket.close(code=1008)
+        return
+    
     await ws_manager.connect(websocket)
     try:
         while True:

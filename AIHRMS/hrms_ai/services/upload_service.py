@@ -39,13 +39,24 @@ class DataProcessor:
             # Clean data
             df = df.fillna('')
             df.columns = [col.strip().lower() for col in df.columns]
+
+            required_columns = {"employee_id", "display_name", "employee_ou_type", "employee_department", "total_exp", "vvdn_exp", "designation",
+                                "sub_department", "tech_group", "emp_location", "rm_id", "rm_name", "skill_set", "project", "customer",
+                                "project_department", "project_industry", "project_status", "delivery_owner_emp_id", "delivery_owner", "pm",
+                                "project_category", "project_committed_end_date", "project_extended_end_date", "role", "deployment", "occupancy",
+                                "committed_relieving_date", "extended_relieving_date"}
+            missing_columns = required_columns - set(df.columns)
+
+            if missing_columns:
+                logger.warning(f"Missing required Columns: {', '.join(missing_columns)}")
+                raise ValueError(f"Upload File is Incorrect. Missing required Columns")
             
             logger.info(f"File read successfully: {len(df)} rows, {len(df.columns)} columns")
             return df
             
         except Exception as e:
             logger.error(f"Error reading file {filename}: {e}")
-            raise ValueError(f"Could not read file: {str(e)}")
+            raise ValueError(f"{str(e)}")
 
 class DatabaseManager:
     """Manage database operations"""
@@ -205,6 +216,9 @@ class UploadService:
             
             # # NEW: Generate compressed profiles after data insertion
             # await self.compression_service.rebuild_cache()
+        except ValueError as e:
+            logger.error(f"File validation error: {e}")
+            raise ValueError(f"File validation error: {str(e)}")
             
         except Exception as e:
             logger.error(f"File upload processing error: {e}")

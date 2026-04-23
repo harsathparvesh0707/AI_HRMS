@@ -25,3 +25,8 @@ class WebSocketNotifier:
             "type": message_type,
             "message": message
         })
+
+    async def new_notification_notifier(self):
+        await ws_manager.broadcast({
+            "notification": True
+        })

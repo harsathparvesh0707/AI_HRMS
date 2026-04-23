@@ -601,31 +601,33 @@ Respond ONLY as a JSON object keyed by TokenID, no markdown:
             # Persist — always exactly one row
             self._save_to_db(result)
             if project_suggestions:
-                await self.websocket_notifier.send_notification(
-                    message_type="error",
-                    message="Project Suggestion Generated"
-                )
+                # await self.websocket_notifier.send_notification(
+                #     message_type="error",
+                #     message="Project Suggestion Generated"
+                # )
                 await self.notification_service.add_new_notification(
                     title="New Project Suggestions Available",
                     message=f"AI has generated {len(project_suggestions)} project suggestions. Check the Freepool tab."
                 )
+                await self.websocket_notifier.new_notification_notifier()
             if upskill_suggestions:
-                await self.websocket_notifier.send_notification(
-                    message_type="info",
-                    message="Upskill Suggestion Generated"
-                )
+                # await self.websocket_notifier.send_notification(
+                #     message_type="info",
+                #     message="Upskill Suggestion Generated"
+                # )
                 await self.notification_service.add_new_notification(
                     title="New Upskill Suggestions Available",
                     message=f"AI has generated upskill suggestions for {len(upskill_suggestions)} employees. Check the Freepool tab."
                 )
+                await self.websocket_notifier.new_notification_notifier()
             logger.info("Freepool suggestions complete")
             return
         except Exception as e:
             logger.error(f"Error in get_suggestion: {e}")
-            await self.websocket_notifier.send_notification(
-                message_type="error",
-                message=f"Project and Upskill suggestion Failed: {str(e)}"
-            )
+            # await self.websocket_notifier.send_notification(
+            #     message_type="error",
+            #     message=f"Project and Upskill suggestion Failed: {str(e)}"
+            # )
             raise
 
     async def get_suggestions_from_db(self):

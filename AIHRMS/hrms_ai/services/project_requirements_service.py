@@ -171,14 +171,15 @@ class ProjectRequirementSuggestion:
                 message=f"Suggestions have been generated for project requirements"
             )
             if project_requirement_id is not None:
-                await self.websocket_notifier.send_notification(message_type="info", message="Project Requirement Suggestion Generated")
+                # await self.websocket_notifier.send_notification(message_type="info", message="Project Requirement Suggestion Generated")
+                await self.websocket_notifier.new_notification_notifier()
                 return {'status': 200, 'response': all_results}
             return
 
         except Exception as e:
             logger.error(f"Error while processing requirement suggestion API: {str(e)}")
-            if project_requirement_id is not None:
-                await self.websocket_notifier.send_notification(message_type="error", message=f"Project Requirement Suggestion Failed: {str(e)}")
+            # if project_requirement_id is not None:
+            #     await self.websocket_notifier.send_notification(message_type="error", message=f"Project Requirement Suggestion Failed: {str(e)}")
             raise
 
     async def _get_all_project_requirements(self, project_requirement_id: int = None):

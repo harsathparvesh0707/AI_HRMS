@@ -91,3 +91,12 @@ class NotificationDBService:
             except Exception as e:
                 logger.error(f"Error deleting notification: {e}")
                 raise HTTPException(status_code=404, detail=str(e))
+            
+    async def get_unread_notification_count(self):
+        with get_db_session() as session:
+            try:
+                result = session.execute(text("SELECT COUNT(*) as count FROM notifications WHERE is_read = FALSE")).fetchone()
+                return {"status": 200, "count": result[0] if result else 0}
+            except Exception as e:
+                logger.error(f"Error fetching unread notification count: {e}")
+                raise
