@@ -757,6 +757,42 @@ async def get_count_of_unread_notifications(current_user: dict = Depends(get_cur
     except Exception as e:
         logger.error(f"Error while fetching unread notifications count: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.get("/dashboard/deployment_count", status_code=200, tags=["dashboard"])
+async def get_deployment_wise_counts():
+    try:
+        result = await dashboard_service.get_employees_deployment_wise_counts()
+        return result
+    except Exception as e:
+        logger.error(f"Error while fetching deployment wise count data: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.get("/get_all_deployments", status_code=200, tags=["dashboard"])
+async def get_all_deployments():
+    try:
+        result = await dashboard_service.get_all_deployments()
+        return result
+    except Exception as e:
+        logger.error(f"Error while fetching all deployments: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@api_router.get("/get_all_techgroups", status_code=200, tags=["dashboard"])
+async def get_all_techgroups():
+    try:
+        result = await dashboard_service.get_all_techgroups()
+        return result
+    except Exception as e:
+        logger.error(f"Error while fetching all tehcgroups: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@api_router.get("/dashboard/deployment_resources", status_code=200, tags=["dashboard"])
+async def get_all_deployment_resources(deployment: str, tech_group: str = "all"):
+    try:
+        result = await dashboard_service.get_deployment_resources(deployment, tech_group)
+        return result
+    except Exception as e:
+        logger.error(f"Error while fetching deployment resources: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
     
 @api_router.post("/register")
 async def user_registration(user: User):

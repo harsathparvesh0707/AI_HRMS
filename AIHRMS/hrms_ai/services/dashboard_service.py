@@ -220,4 +220,160 @@ class DashboardService:
         except Exception as e:
             logger.error(f"Error while fetching data from Projects: {str(e)}")
             raise
-        
+
+    async def get_employees_deployment_wise_counts(self):
+        with get_db_session() as session:
+            try:
+
+                query = """
+                WITH ranked_resources AS (
+                    SELECT
+                        employee_id,
+                        deployment,
+                        occupancy,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY employee_id
+                            ORDER BY
+                                occupancy DESC,
+                                CASE deployment
+                                    WHEN 'Billable' THEN 1
+                                    WHEN 'Budgeted' THEN 2
+                                    WHEN 'Internal Budgeted' THEN 3
+                                    WHEN 'RandD Internal Budgeted' THEN 4
+                                    WHEN 'Client Backup' THEN 5
+                                    WHEN 'MFG Support Backup' THEN 6
+                                    WHEN 'Billable Backup' THEN 7
+                                    WHEN 'Shadow' THEN 8
+                                    WHEN 'R and D Shadow' THEN 9
+                                    WHEN 'Free' THEN 10
+                                    WHEN 'Trainee' THEN 11
+                                    WHEN 'Planned' THEN 12
+                                    WHEN 'Long Leave' THEN 13
+                                    WHEN 'BU Common' THEN 14
+                                    ELSE 999
+                                END
+                        ) AS rn
+                    FROM employee_projects
+                )
+                SELECT
+                    deployment,
+                    COUNT(*) AS total_resources
+                FROM ranked_resources
+                WHERE rn = 1
+                GROUP BY deployment
+                ORDER BY total_resources DESC;
+                """
+                result = session.execute(text(query)).mappings().all()
+                return {
+                    "status": 200,
+                    "data": [dict(row) for row in result]
+                }
+
+            except Exception as e:
+                logger.error(f"Error fetching employees deployment wise counts: {e}")
+                raise
+
+    async def get_all_deployments(self):
+        with get_db_session() as session:
+            try:
+                result = session.execute(text("SELECT DISTINCT deployment FROM employee_projects WHERE deployment IS NOT NULL AND TRIM(deployment) <> ''ORDER BY deployment")).mappings().all()
+                return {"status": 200, "data": result}
+            except Exception as e:
+                logger.error(f"Error fetching deployments")
+                raise
+
+    async def get_all_techgroups(self):
+        with get_db_session() as session:
+            try:
+                result = session.execute(text("SELECT DISTINCT tech_group FROM employees WHERE tech_group IS NOT NULL ORDER BY tech_group")).mappings().all()
+                return {"status": 200, "data": result}
+            except Exception as e:
+                logger.error(f"Error fetching tech groups")
+                raise
+
+    async def get_deployment_resources(self, deployment, tech_group):
+        with get_db_session() as session:
+            try:
+                query = """
+                WITH ranked_resources AS (
+                    SELECT
+                        ep.employee_id,
+                        ep.project_name,
+                        ep.deployment,
+                        ep.occupancy,
+                        ep.project_joined_date,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY ep.employee_id
+                            ORDER BY
+                                ep.occupancy DESC,
+                                CASE ep.deployment
+                                    WHEN 'Billable' THEN 1
+                                    WHEN 'Budgeted' THEN 2
+                                    WHEN 'Internal Budgeted' THEN 3
+                                    WHEN 'RandD Internal Budgeted' THEN 4
+                                    WHEN 'Client Backup' THEN 5
+                                    WHEN 'MFG Support Backup' THEN 6
+                                    WHEN 'Billable Backup' THEN 7
+                                    WHEN 'Shadow' THEN 8
+                                    WHEN 'R and D Shadow' THEN 9
+                                    WHEN 'Free' THEN 10
+                                    WHEN 'Trainee' THEN 11
+                                    WHEN 'Planned' THEN 12
+                                    WHEN 'Long Leave' THEN 13
+                                    WHEN 'BU Common' THEN 14
+                                    ELSE 999
+                                END
+                        ) AS rn
+                    FROM employee_projects ep
+                )
+                SELECT
+                    e.employee_id,
+                    e.display_name,
+                    e.designation,
+                    e.employee_department,
+                    e.tech_group,
+                    e.total_exp,
+                    e.emp_location,
+                    rr.project_name,
+                    rr.deployment,
+                    rr.occupancy,
+                    rr.project_joined_date,
+                    CURRENT_DATE - rr.project_joined_date AS aging_days
+                FROM ranked_resources rr
+                JOIN employees e
+                    ON e.employee_id = rr.employee_id
+                WHERE rr.rn = 1
+                AND rr.deployment = :deployment
+                """
+                params = {
+                    "deployment": deployment
+                }
+                # Apply tech group filter only if not All
+                if tech_group.strip().lower() != "all":
+                    query += """
+                    AND LOWER(TRIM(e.tech_group)) = LOWER(TRIM(:tech_group))
+                    """
+                    params["tech_group"] = tech_group
+
+                query += """
+                ORDER BY
+                    CAST(
+                        REGEXP_REPLACE(e.total_exp, '[^0-9.]', '', 'g')
+                        AS FLOAT
+                    ) DESC
+                """
+
+                result = session.execute(
+                    text(query),
+                    params
+                ).mappings().all()
+
+                return {
+                    "status": 200,
+                    "count": len(result),
+                    "data": [dict(row) for row in result]
+                }
+
+            except Exception as e:
+                logger.error(f"Error fetching deployment resources: {e}")
+                raise
