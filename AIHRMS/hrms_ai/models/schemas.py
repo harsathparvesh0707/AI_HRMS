@@ -218,3 +218,6 @@ class ProjectRequirements(BaseModel):
     
 class NotificationIdsRequest(BaseModel):
     ids: Optional[List[int]] = None
+
+class JDTextRequest(BaseModel):
+    jd_text: str

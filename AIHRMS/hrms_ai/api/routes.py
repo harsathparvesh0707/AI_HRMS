@@ -10,7 +10,7 @@ from ..services.dashboard_service import DashboardService
 from ..models.schemas import (ChatRequest, UploadResponse,
                             SkillsUpdateRequest, ProjectsUpdateRequest, ProfileUpdateRequest, EmployeeResponse, ProjectsListResponse,
                             ProjectDistributionResponse, DepartmentDistributionResponse, AvailableEmployeesResponse, LowOccupancyResponse,
-                            FreepoolCount, EmployeeDirectoryResponse, DeploymentFilter, AIRequest, User, UserResponse, ProjectRequirements, NotificationIdsRequest)
+                            FreepoolCount, EmployeeDirectoryResponse, DeploymentFilter, AIRequest, User, UserResponse, ProjectRequirements, NotificationIdsRequest, JDTextRequest)
 from .endpoints import health
 from ..celery.tasks import rebuild_embedding_cache
 from ..websocket.websocket import ws_manager
@@ -23,6 +23,9 @@ from ..auth.security import Authentication
 from ..auth.auth import Token
 from ..services.project_requirements_service import ProjectRequirementSuggestion
 from ..services.freepool_suggestion_service import FreepoolProjectSuggestionService
+from ..services.jd_ranking_service import JDRankingService
+from ..services.pdf_service import PDFService
+from ..services.resume_matching_service import ResumeMatchingService
 from ..services.notification_service import NotificationDBService
 from ..services.websocket_service import WebSocketNotifier
 from fastapi.security import OAuth2PasswordBearer
@@ -45,6 +48,8 @@ low_occupancy_service = LowOccupancyService()
 ai_analytics = AiAnalytics()
 project_suggestion = ProjectRequirementSuggestion()
 freepool_suggestion_service = FreepoolProjectSuggestionService()
+jd_ranking_service = JDRankingService()
+resume_matching_service = ResumeMatchingService()
 notification_service = NotificationDBService()
 websocket_notifier = WebSocketNotifier()
 user_auth = Authentication()
@@ -362,7 +367,7 @@ async def get_query_analytics(current_user: dict = Depends(get_current_user)) ->
 
 # Employee Management APIs
 @api_router.get("/employees", tags=["employee-management"])
-async def get_all_employees(page: int = Query(1, ge=1), page_size: int = Query(10, ge=1), current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
+async def get_all_employees(page: Optional[int] = Query(None, ge=1), page_size: Optional[int] = Query(None, ge=1), current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Get All Employees"""
     try:
         result = await upload_service.get_all_employee_details(page, page_size)
@@ -757,6 +762,64 @@ async def get_count_of_unread_notifications(current_user: dict = Depends(get_cur
     except Exception as e:
         logger.error(f"Error while fetching unread notifications count: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/jd_rank_candidates", status_code=200, tags=["suggestions"])
+async def rank_candidates_by_jd(request: JDTextRequest,):
+    """Rank candidates from a plain-text JD"""
+    try:
+        result = await jd_ranking_service.rank_by_jd(request.jd_text)
+        return result
+    except Exception as e:
+        logger.error(f"Error in JD ranking: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/jd_rank_candidates/upload", status_code=200, tags=["suggestions"])
+async def rank_candidates_by_jd_pdf(
+    file: UploadFile = File(...)
+):
+    """Upload a JD PDF and get ranked candidates by skill, experience and availability"""
+    try:
+        if not PDFService.validate_pdf(file.filename):
+            raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+        file_content = await file.read()
+        if not file_content:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+        jd_text = await PDFService.extract_text_from_pdf(file_content, file.filename)
+        logger.info(f"Extracted text from PDF: {jd_text[:100]}...")
+        result  = await jd_ranking_service.rank_by_jd(jd_text)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in JD PDF ranking: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/resume_match_profiles/upload", status_code=200, tags=["suggestions"])
+async def match_resume_pdf(
+    file: UploadFile = File(...),
+):
+    """Upload a resume PDF and find similar profiles in the organization"""
+    try:
+        if not PDFService.validate_pdf(file.filename):
+            raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+        file_content = await file.read()
+        if not file_content:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+        resume_text = await PDFService.extract_text_from_pdf(file_content, file.filename)
+        result      = await resume_matching_service.match_resume(resume_text)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in resume matching: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @api_router.get("/dashboard/deployment_count", status_code=200, tags=["dashboard"])
 async def get_deployment_wise_counts():

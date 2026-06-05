@@ -912,46 +912,53 @@ class UploadService:
                         "SELECT COUNT(*) FROM employees;"
                     )
                 ).scalar()
-                result = session.execute(
-                    text(
-                        """
-                        SELECT 
-                            e.*,
-                            COALESCE(
-                                json_agg(
-                                    DISTINCT jsonb_build_object(
-                                        'project_name', p.project_name,
-                                        'customer', p.customer,
-                                        'project_department', p.project_department,
-                                        'project_industry', p.project_industry,
-                                        'project_status', p.project_status,
-                                        'project_category', p.project_category,
-                                        'pm', p.pm,
-                                        'role', ep.role,
-                                        'deployment', ep.deployment,
-                                        'occupancy', ep.occupancy,
-                                        'project_joined_date', ep.project_joined_date,
-                                        'project_extended_end_date', p.project_extended_end_date,
-                                        'project_committed_end_date', p.project_committed_end_date
-                                    )
-                                ) FILTER (WHERE ep.employee_id IS NOT NULL),
-                                '[]'::json
-                            ) AS projects
-                        FROM employees e
-                        LEFT JOIN employee_projects ep 
-                            ON e.employee_id = ep.employee_id
-                        LEFT JOIN projects p 
-                            ON ep.project_name = p.project_name
-                        GROUP BY e.employee_id
-                        ORDER BY split_part(e.employee_id, '/', 2)::int
-                        LIMIT :limit OFFSET :offset;
-                        """
-                    ),
-                    {
+                base_query = """
+                    SELECT 
+                        e.*,
+                        COALESCE(
+                            json_agg(
+                                DISTINCT jsonb_build_object(
+                                    'project_name', p.project_name,
+                                    'customer', p.customer,
+                                    'project_department', p.project_department,
+                                    'project_industry', p.project_industry,
+                                    'project_status', p.project_status,
+                                    'project_category', p.project_category,
+                                    'pm', p.pm,
+                                    'role', ep.role,
+                                    'deployment', ep.deployment,
+                                    'occupancy', ep.occupancy,
+                                    'project_joined_date', ep.project_joined_date,
+                                    'project_extended_end_date', p.project_extended_end_date,
+                                    'project_committed_end_date', p.project_committed_end_date
+                                )
+                            ) FILTER (WHERE ep.employee_id IS NOT NULL),
+                            '[]'::json
+                        ) AS projects
+                    FROM employees e
+                    LEFT JOIN employee_projects ep 
+                        ON e.employee_id = ep.employee_id
+                    LEFT JOIN projects p 
+                        ON ep.project_name = p.project_name
+                    GROUP BY e.employee_id
+                    ORDER BY split_part(e.employee_id, '/', 2)::int
+                """
+
+                params = {}
+
+                if page_number is not None and page_size is not None:
+                    offset = (page_number - 1) * page_size
+                    base_query += " LIMIT :limit OFFSET :offset"
+                    params.update({
                         "limit": page_size,
                         "offset": offset
-                    }
+                    })
+
+                result = session.execute(
+                    text(base_query),
+                    params
                 ).mappings().all()
+
             employees = [dict(row) for row in result]
             return {
                 "status": 200,

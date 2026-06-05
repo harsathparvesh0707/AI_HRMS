@@ -171,6 +171,7 @@ numpy==1.26.4
 google-genai==0.3.0
 python-jose==3.3.0
 apscheduler==3.10.4
+pymupdf==1.26.4
 # pip install --upgrade pip setuptools wheel
 # pip cache purge
 # pip install --upgrade --force-reinstall resolvelib
