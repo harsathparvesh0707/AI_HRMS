@@ -905,7 +905,6 @@ class UploadService:
     async def get_all_employee_details(self, page_number: int, page_size: int) -> Dict[str, Any]:
         """Get all Employee Details including Projects"""
         try:
-            offset = (page_number - 1) * page_size
             with get_db_session() as session:
                 total = session.execute(
                     text(
