@@ -2353,6 +2353,7 @@ EMPLOYEES:
                 score = min(round(((skill * 25 + avail * 60 + exp * 15) / 100)), 100)
                 if avail <= 10:
                     tier = 4
+                    score = 10
                 elif score >= 75:
                     tier = 1
                 elif score >= 50:
@@ -2361,6 +2362,7 @@ EMPLOYEES:
                     tier = 3
                 else:
                     tier = 4
+                    score = 10
                 reason_text = " ".join(parts[2:]).strip()
                 # Clean up [Skill XX] prefix from reasoning
                 reason_text = re.sub(r'^\[Skill \d+\]\s*', '', reason_text)
