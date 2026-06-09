@@ -343,12 +343,14 @@ class DashboardService:
                 JOIN employees e
                     ON e.employee_id = rr.employee_id
                 WHERE rr.rn = 1
-                AND rr.deployment = :deployment
                 """
-                params = {
-                    "deployment": deployment
-                }
+                params = {}
                 # Apply tech group filter only if not All
+                if deployment.strip().lower() != "all":
+                    query += """
+                    AND LOWER(TRIM(rr.deployment)) = LOWER(TRIM(:deployment))
+                    """
+                    params["deployment"] = deployment
                 if tech_group.strip().lower() != "all":
                     query += """
                     AND LOWER(TRIM(e.tech_group)) = LOWER(TRIM(:tech_group))

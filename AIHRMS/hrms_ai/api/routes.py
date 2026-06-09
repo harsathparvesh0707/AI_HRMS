@@ -849,7 +849,7 @@ async def get_all_techgroups():
         raise HTTPException(status_code=400, detail=str(e))
     
 @api_router.get("/dashboard/deployment_resources", status_code=200, tags=["dashboard"])
-async def get_all_deployment_resources(deployment: str, tech_group: str = "all"):
+async def get_all_deployment_resources(deployment: str = "all", tech_group: str = "all"):
     try:
         result = await dashboard_service.get_deployment_resources(deployment, tech_group)
         return result
