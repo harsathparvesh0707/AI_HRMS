@@ -28,7 +28,7 @@ from ..services.pdf_service import PDFService
 from ..services.resume_matching_service import ResumeMatchingService
 from ..services.notification_service import NotificationDBService
 from ..services.websocket_service import WebSocketNotifier
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi import Depends
 from jose import JWTError, ExpiredSignatureError
 import asyncio
@@ -868,9 +868,10 @@ async def user_registration(user: User):
 
 
 @api_router.post("/login")
-async def user_login(user: User):
+async def user_login(user_data: OAuth2PasswordRequestForm = Depends()):
     try:
-        result = await user_auth._user_login(user.dict())
+        user = {"username": user_data.username, "password": user_data.password}
+        result = await user_auth._user_login(user)
         return result
     except Exception as e:
         logger.error(f"Error while Login: {str(e)}")
